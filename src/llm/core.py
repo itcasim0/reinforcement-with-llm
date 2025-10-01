@@ -1,11 +1,15 @@
 import os
-import random
 
+from pathlib import Path
 from openai import OpenAI
+from dotenv import load_dotenv
+
+ROOT_DIR = Path(__file__).parent.parent.parent
+load_dotenv(ROOT_DIR / ".env")
 
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_APK_KEY"),
+    api_key=os.getenv("OPENROUTER_API_KEY"),
 )
 
 
@@ -27,15 +31,6 @@ class CandidateLLM:
         """
         usage: API가 반환하는 토큰 사용량.
         """
-
-        """TODO: Responses API return을 어떤식으로 하는 지 확인 필요.
-        Responses API 기준으로 아래와 유사한 필드를 가정:
-          usage = {
-            "input_tokens": ...,
-            "output_tokens": ...,
-            "total_tokens": ...
-          }"""
-
         input_tokens = int(
             getattr(usage, "input_tokens", 0) or usage.get("input_tokens", 0)
         )
@@ -66,47 +61,75 @@ class CandidateLLM:
         """
 
         system_prompt = "당신은 사용자 질문에 명확하고 분명하게 응답하세요."
-        response = client.responses.create(
-            model=self.model,
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": question},
-            ],
-        )
 
-        # TODO: 아래에 부분에서 default값 설정 부분 다 제거하고, 확실하게 수정할 것
-        # TODO: 쓸대없는 LLM API 호출은 비용만 발생할 뿐.
         try:
-            # 가능한 필드 케이스에 폭넓게 대응.
-            first_item = (
-                response.output[0]
-                if hasattr(response, "output")
-                else response.choices[0]
+            # OpenAI 호환 Chat API 호출
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": question},
+                ],
             )
-            if hasattr(first_item, "content") and first_item.content:
-                info_text = getattr(first_item.content[0], "text", None)
-                info = getattr(info_text, "value", "") if info_text else ""
-            elif hasattr(first_item, "message"):
-                info = first_item.message.get("content", "")
-            else:
-                # 최후 fallback
-                info = str(first_item)
-        except Exception:
-            info = ""
 
-        usage = getattr(response, "usage", {})
+            # --- 응답 파싱 ---
+            info = ""
+            choice = response.choices[0]
+
+            # 표준 chat.completions 구조
+            if hasattr(choice, "message") and choice.message:
+                if isinstance(choice.message, dict):
+                    info = choice.message.get("content", "")
+                else:
+                    info = getattr(choice.message, "content", "") or ""
+
+            # 일부 모델은 text 필드로 올 수도 있음
+            if not info and hasattr(choice, "text"):
+                info = getattr(choice, "text", "")
+
+            # 최후 fallback
+            if not info:
+                info = str(choice)
+
+        except Exception as e:
+            info = f"[Error: {e}]"
+            response = None
+
+        # --- usage 파싱 ---
+        usage = getattr(response, "usage", {}) if response else {}
+
+        """
+        * usage 예시
+        CompletionUsage(
+            completion_tokens=11,
+            prompt_tokens=26,
+            total_tokens=37,
+            completion_tokens_details=CompletionTokensDetails(
+                accepted_prediction_tokens=None,
+                audio_tokens=None,
+                reasoning_tokens=0,
+                rejected_prediction_tokens=None,
+                image_tokens=0,
+            ),
+            prompt_tokens_details=PromptTokensDetails(
+                audio_tokens=None,
+                cached_tokens=0
+            )
+        )
+        """
 
         # 객체/딕셔너리 양쪽 지원
         if not isinstance(usage, dict):
             usage = {
-                "input_tokens": getattr(usage, "input_tokens", 0),
-                "output_tokens": getattr(usage, "output_tokens", 0),
+                "input_tokens": getattr(usage, "prompt_tokens", 0),
+                "output_tokens": getattr(usage, "completion_tokens", 0),
                 "total_tokens": getattr(usage, "total_tokens", 0),
             }
 
         out_tokens, cost = self._calc_cost(usage)
 
         # TODO: LLM의 응답을 어떻게 수식화할 지 고민 필요.
+        # TODO: 아마 ok는 없어지고, 해당 부분은 reward 계산하는 부분에서 결정해야할지도?
         ok = len(info.strip()) > 0
 
         info_msg = info if len(info) <= 200 else info[:200] + "..."
