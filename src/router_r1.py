@@ -1,16 +1,7 @@
 import random
-from pathlib import Path
-
-from dotenv import load_dotenv
 
 from llm.core import CandidateLLM
-
 from utils.logger_factory import log
-
-ROOT_DIR = Path(__file__).parent.parent
-
-load_dotenv(ROOT_DIR / ".env")
-
 
 # ========== Environment ==========
 class RouterEnv:
@@ -36,7 +27,7 @@ class RouterEnv:
         elif action[0] == "ROUTE":
             i = action[1]
             info, out_toks, cost, ok = self.llms[i].answer(self.q)
-            self.ctx["log"].append(("<search>", f"{self.llms[i].name}: subq"))
+            self.ctx["log"].append(("<search>", f"{self.llms[i].model}: subq"))
             self.ctx["log"].append(("<info>", info))
             self.calls.append((i, out_toks, cost, ok))
         elif action[0] == "STOP":
@@ -76,7 +67,8 @@ class RouterEnv:
         return 0.0 if ok else -1.0
 
     def _outcome_reward(self, guess):
-        return 1.0 if guess.strip().lower() == self.gt.strip().lower() else 0.0
+        # guess가 정답을 포함하면 맞춘 걸로 인정
+        return 1.0 if self.gt.strip().lower() in guess.strip().lower() else 0.0
 
     def _cost_reward(self):
         # invert & normalize cost into [0,1] on a rough scale
@@ -101,7 +93,7 @@ class RandomPolicy:
     def __init__(self, n_models):
         self.n_models = n_models
 
-    def act(self, s):
+    def act(self, s, ctx=None):
         # 아주 단순한 정책: t==0이면 THINK, 그 다음 ROUTE 하나, 마지막에 STOP
         if s["t"] == 0:
             return ("THINK",)
@@ -109,8 +101,13 @@ class RandomPolicy:
             i = random.randrange(self.n_models)
             return ("ROUTE", i)
         else:
-            # 데모: 정답을 모른다고 가정하고 "guess"를 빈 문자열로
-            return ("STOP", "")
+            # 마지막 <info>를 guess로 제출
+            guess = ""
+            if ctx:
+                infos = [msg for tag, msg in ctx["log"] if tag == "<info>"]
+                if infos:
+                    guess = infos[-1]
+            return ("STOP", guess)
 
 
 # ---------- 4) Example Run ----------
@@ -119,29 +116,27 @@ def build_pool():
         CandidateLLM(
             "google/gemini-2.0-flash-001",
             "25년 2월 출시 가성비 값 모델",
-            {"input_price": 0.10, "output_prices": 0.40},
+            {"input_price": 0.10, "output_price": 0.40},
         ),
         CandidateLLM(
             "google/gemini-2.5-flash-lite",
             "25년 7월 출시인데, 2.0보다 더 적게 쓰이는 모델",
-            {"input_price": 0.10, "output_prices": 0.40},
+            {"input_price": 0.10, "output_price": 0.40},
         ),
         CandidateLLM(
             "google/gemma-3-12b-it",
             "오픈소스 모델 하나 정도는 껴있어야 재밌지",
-            {"input_price": 0.04, "output_prices": 0.14},
+            {"input_price": 0.04, "output_price": 0.14},
         ),
     ]
-
 
 def samples():
     # (질문, 정답, 필요스킬)
     return [
         ("프랑스의 수도는?", "파리", "geo"),
         ("2018과 2021 중 늦은 해?", "2021", "date"),
-        ("A와 B 사실을 합쳐 결론?", "정답", "multi-hop"),
+        ("에펠탑은 어느 도시에 있는가, 그리고 그 도시는 어느 나라의 수도인가?", "프랑스", "multi-hop"),
     ]
-
 
 def router_r1():
     env = RouterEnv(build_pool(), T_max=4, alpha=0.6)
@@ -150,10 +145,14 @@ def router_r1():
         s = env.reset(sample)
         done = False
         while not done:
-            a = pi.act(s)
+            a = pi.act(s, env.ctx)
             s, r, done = env.step(a)
         log.info(f"[EP{ep}] R={r:.3f} calls={s['n_calls']} cost={s['tot_cost']:.1f}")
 
+        # 출력
+        for tag, msg in env.ctx["log"]:
+            print(f"{tag}: {msg.strip()}")
+        print("")
 
 if __name__ == "__main__":
     router_r1()
