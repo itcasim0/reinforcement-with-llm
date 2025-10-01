@@ -12,6 +12,7 @@ client = OpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY"),
 )
 
+
 class CandidateLLM:
     """
     후보 LLM으로, 질문에 대해 응답을 호출하고, 이를 계산하여 강화학습에 활용.
@@ -128,6 +129,7 @@ class CandidateLLM:
         out_tokens, cost = self._calc_cost(usage)
 
         # TODO: LLM의 응답을 어떻게 수식화할 지 고민 필요.
+        # TODO: 아마 ok는 없어지고, 해당 부분은 reward 계산하는 부분에서 결정해야할지도?
         ok = len(info.strip()) > 0
 
         info_msg = info if len(info) <= 200 else info[:200] + "..."
