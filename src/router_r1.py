@@ -128,13 +128,26 @@ class RouterEnv:
         }
 
     def _format_reward(self):
+        """
+        reward 계산 시 제일 처음으로 수행하는 부분.
+        하나의 episode가 끝난 후, state의 포맷이 설계한 형태로 나왔는 지 확인.
+        포맷이 설계한 형태이면 0, 아니면 -1의 reward를 부여.
+
+        """
         tags = [tag for tag, _ in self.context.logs]
-        has_think = any(t == "<think>" for t, _ in self.context.logs)
-        answers = [t for t, _ in self.context.logs if t == "<answer>"]
+
+        # <think>가 하나라도 있으면, True
+        has_think = any(tag == "<think>" for tag in tags)
+
+        # <answer>만 추출
+        answers = [tag for tag in tags if tag == "<answer>"]
+
         # naive pairing check for search->response
-        s_cnt = sum(1 for t, _ in self.context.logs if t == "<search>")
-        i_cnt = sum(1 for t, _ in self.context.logs if t == "<response>")
-        ok = has_think and len(answers) == 1 and s_cnt == i_cnt
+        search_cnt = sum(1 for tag in tags if tag == "<search>")
+        response_cnt = sum(1 for tag in tags if tag == "<response>")
+
+        # TODO: <think>가 2개가 있을 수가 있나..? 1개인지만 확인하면 되는 거 아님?
+        ok = has_think and len(answers) == 1 and search_cnt == response_cnt
         return 0.0 if ok else -1.0
 
     def _outcome_reward(self, response: str):
@@ -145,6 +158,7 @@ class RouterEnv:
         return 1.0 if self.gt.strip().lower() in response.strip().lower() else 0.0
 
     def _cost_reward(self):
+        # TODO: 비용에 대한 최대 계산은 실제로 몇 번 돌려보고 재정의 필요할 듯.
         # invert & normalize cost into [0,1] on a rough scale
         raw = sum(c for _, _, c, _ in self.calls)
         # assume 0~200 arbitrary
@@ -152,10 +166,15 @@ class RouterEnv:
         return 1.0 - (raw / 200.0)
 
     def _final_reward(self, response):
+
+        # 설계한 포맷인지 아닌 지에 따른 보상.
         Rf = self._format_reward()
         if Rf < 0:
-            return Rf  # outcome/cost 무효화 (계층형 보상)
+            return Rf  # outcome/cost 무효화. (계층형 보상)
+
+        # LLM의 응답한 결과에 따른 보상.
         Ro = self._outcome_reward(response)
+
         Rc = self._cost_reward()
         return Rf + (1 - self.alpha) * Ro + self.alpha * Rc
 
