@@ -50,7 +50,7 @@ class RouterEnv:
     Args:
         llms(list): 후보 LLM들
         max_step(int): 여러 번 호출 시 최대 몇 번까지 할지.
-        alpha(float): TODO: ?
+        alpha(float): LLM 비용에 대한 알파 값, (1-알파)는 정답에 대한 reward
     """
 
     def __init__(self, llms: List[CandidateLLM], max_step=4, alpha=0.6):
@@ -84,8 +84,8 @@ class RouterEnv:
             # LLM 호출 후 reward 계산에 사용될 요소들.
             response, out_tokens, cost, ok = llm.answer(self.question)
 
-            # Update context logs .
-            self.context.logs.append(("<search>", f"{llm.model}: subq"))
+            # Update context logs.
+            self.context.logs.append(("<model>", f"{llm.model}"))
             self.context.logs.append(("<response>", response))
 
             # LLM 호출에 대한 결과 저장.
@@ -142,12 +142,12 @@ class RouterEnv:
         # <answer>만 추출
         answers = [tag for tag in tags if tag == "<answer>"]
 
-        # naive pairing check for search->response
-        search_cnt = sum(1 for tag in tags if tag == "<search>")
+        # naive pairing check for model->response
+        model_cnt = sum(1 for tag in tags if tag == "<model>")
         response_cnt = sum(1 for tag in tags if tag == "<response>")
 
         # TODO: <think>가 2개가 있을 수가 있나..? 1개인지만 확인하면 되는 거 아님?
-        ok = has_think and len(answers) == 1 and search_cnt == response_cnt
+        ok = has_think and len(answers) == 1 and model_cnt == response_cnt
         return 0.0 if ok else -1.0
 
     def _outcome_reward(self, response: str):
