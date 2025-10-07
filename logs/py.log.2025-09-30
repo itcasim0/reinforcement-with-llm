@@ -1,0 +1,9 @@
+2025-10-01 19:16:37,006 #27008 	 router_r1.py(150) 	 INFO - [EP1] R=1.000 calls=2 cost=0.0
+2025-10-01 19:16:38,811 #27008 	 router_r1.py(150) 	 INFO - [EP2] R=1.000 calls=2 cost=0.0
+2025-10-01 19:16:40,247 #27008 	 router_r1.py(150) 	 INFO - [EP3] R=1.000 calls=2 cost=0.0
+2025-10-01 19:20:05,178 #15464 	 router_r1.py(150) 	 INFO - [EP1] R=1.000 calls=2 cost=0.0
+2025-10-01 19:20:06,513 #15464 	 router_r1.py(150) 	 INFO - [EP2] R=1.000 calls=2 cost=0.0
+2025-10-01 19:20:08,807 #15464 	 router_r1.py(150) 	 INFO - [EP3] R=1.000 calls=2 cost=0.0
+2025-10-01 19:39:38,240 #27292 	 router_r1.py(150) 	 INFO - [EP1] R=0.600 calls=2 cost=0.0
+2025-10-01 19:39:38,901 #27292 	 router_r1.py(150) 	 INFO - [EP2] R=0.600 calls=2 cost=0.0
+2025-10-01 19:39:39,519 #27292 	 router_r1.py(150) 	 INFO - [EP3] R=0.600 calls=2 cost=0.0
