@@ -12,3 +12,6 @@
 4. _state()의 역할이 Q함수인가?
 5. _final_reward()은 가치함수인가?
    * 가치함수라면, 해당 수식은 뭐라고 설명할 수 있는 가?
+6. 본 프로젝트는 model-based 인가, model-free 인가?
+   * model-free라면, 어떻게 해야 model-based가 되는 가?
+   * model-based라면, 어떻게 해야 model-free가 되는 가?
