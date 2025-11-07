@@ -108,6 +108,21 @@ class RouterEnv:
             # force stop with empty response
             # TODO: 응답을 비어있게 만드는 게 맞을 지,
             # TODO: 마지막 step의 response를 가져와서 활용하게끔 하는 게 맞을 지?
+            
+            # 빈 답변 강제 종료??
+            # responses = [msg for tag, msg in self.context.logs if tag == "<response>"]
+            # if responses:
+            #     final_response = responses[-1]
+            #     self.context.logs.append(("<answer>", final_response))
+            #     reward = self._final_reward(final_response) - 0.1  # 약간의 패널티
+            # else:
+            #     self.context.logs.append(("<answer>", ""))
+            #     reward = self._final_reward("") - 0.1  # 약간의 패널티
+
+            # 마지막 응답을 사용하게끔 하는 게 더 나을 듯? # reward는 정답이면 1 아니면 0 오답이면 -1??
+            # 
+            
+            
             self.context.logs.append(("<answer>", ""))
             done = True
             reward = self._final_reward("")
@@ -182,6 +197,7 @@ class RouterEnv:
 # ========== policy =========
 # TODO: 이 부분이 배운 강화학습 알고리즘을 응용할 곳.
 # TODO: Random, 벨만, 마코프, dynamic ,bandit, Q-Learning, etc...
+
 class RandomPolicy:
     def __init__(self, n_models):
         self.n_models = n_models

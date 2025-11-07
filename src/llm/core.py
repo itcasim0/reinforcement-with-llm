@@ -81,6 +81,9 @@ class CandidateLLM:
 
         # TODO: LLM의 응답을 어떻게 수식화할 지 고민 필요.
         # TODO: 아마 ok는 없어지고, 해당 부분은 reward 계산하는 부분에서 결정해야할지도?
+        
+        # 빈 문자열이 아니면 정답이니.
+        # TODO: ok는 없어지고, 해당 부분은 reward 계산하는 부분에서 결정해야할지도? "진산 의견"
         ok = len(content.strip()) > 0
 
         content = content if len(content) <= 200 else content[:200] + "..."
