@@ -3,6 +3,7 @@
 * 프로젝트의 코드와 수업시간에 배운 것을 같이 생각하면서 공부해봅시다.
 
 ## 내용
+### 중간고사
 1. 코드에서 step()은 trajectory를 의미하는지?
 2. action에 STOP이 호출되면, 1 episode 인가?
    * 그렇다면, 데이터 1개당 1 episode 인가?
@@ -15,3 +16,5 @@
 6. 본 프로젝트는 model-based 인가, model-free 인가?
    * model-free라면, 어떻게 해야 model-based가 되는 가?
    * model-based라면, 어떻게 해야 model-free가 되는 가?
+
+### 기말고사
