@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime
 
-from llm.core import CandidateLLM
+from llm.core import client
 from utils.logger_factory import log
 
 
@@ -24,21 +24,7 @@ class TextReconstructorLLM:
         Args:
             model_name: 사용할 LLM 모델명
         """
-        # 모델별 가격 정보 (1M 토큰당 달러)
-        price_info = {
-            "input_price": 0.00015,  # $0.15 per 1M tokens
-            "output_price": 0.00060,  # $0.60 per 1M tokens
-        }
-
-        self.llm = CandidateLLM(
-            model=model_name,
-            description="Text reconstruction model",
-            price_per_1m=price_info,
-        )
-
-        self.total_cost = 0.0
-        self.total_tokens = 0
-        self.processed_count = 0
+        self.model_name = model_name
 
     def reconstruct_text(self, original_text: str) -> Dict[str, Any]:
         """
@@ -58,52 +44,29 @@ class TextReconstructorLLM:
 2. 표현과 문장 구조를 더 모호하고 애매하게 하여 독자가 쉽게 따라가지 못하도록 해.
 3. 중복되거나 불필요한 부분을 추가하고 장황하게 구성해.
 4. 문장과 문단 순서를 조정해서 논리가 없는 흐름으로 부자연스럽게 해줘.
-        
-[원본 텍스트]
+"""
+        content = f"""[원본 텍스트]
 {original_text}
 
 위 내용을 [재구성 사항]을 참고하여 텍스트에 오류가 많도록 재구성해줘."""
 
         try:
             # LLM 호출
-            content, out_tokens, cost, ok = self.llm.answer(prompt)
+            response = client.chat.completions.create(
+                model=self.model_name,
+                messages=[
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": content},
+                ],
+            )
 
-            # 통계 업데이트
-            self.total_cost += cost
-            self.total_tokens += out_tokens
-            self.processed_count += 1
-
-            return {
-                "success": ok,
-                "reconstructed_text": content,
-                "output_tokens": out_tokens,
-                "cost": cost,
-                "original_length": len(original_text),
-                "reconstructed_length": len(content),
-            }
+            # --- 응답 파싱 ---
+            content = response.choices[0].message.content
+            return content
 
         except Exception as e:
             log.error(f"텍스트 재구성 중 오류 발생: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "reconstructed_text": "",
-                "output_tokens": 0,
-                "cost": 0.0,
-            }
-
-    def get_statistics(self) -> Dict[str, Any]:
-        """처리 통계 반환"""
-        return {
-            "processed_count": self.processed_count,
-            "total_tokens": self.total_tokens,
-            "total_cost": self.total_cost,
-            "avg_cost_per_item": (
-                self.total_cost / self.processed_count
-                if self.processed_count > 0
-                else 0
-            ),
-        }
+            return ""
 
 
 def load_paper_data(json_path: str) -> List[Dict[str, Any]]:
@@ -132,8 +95,8 @@ def load_paper_data(json_path: str) -> List[Dict[str, Any]]:
 
 
 def reconstruct_paper(
-    json_path: str,
-    output_path: str = None,
+    json_path: Path,
+    output_path: Path = None,
     max_papers: int = None,
     model_name: str = "openai/gpt-4o-mini",
 ):
@@ -194,10 +157,7 @@ def reconstruct_paper(
             reconstructed_summaries.append(
                 {
                     "original_text": original_text,
-                    "reconstructed_text": result.get("reconstructed_text", ""),
-                    "reconstruction_success": result.get("success", False),
-                    "output_tokens": result.get("output_tokens", 0),
-                    "cost": result.get("cost", 0.0),
+                    "reconstructed_text": result,
                 }
             )
 
@@ -209,16 +169,6 @@ def reconstruct_paper(
             "reconstructed_summaries": reconstructed_summaries,
         }
         results.append(paper_result)
-
-    # 통계 출력
-    stats = reconstructor.get_statistics()
-    log.info("=" * 60)
-    log.info("Processing Statistics:")
-    log.info(f"  Processed items: {stats['processed_count']}")
-    log.info(f"  Total tokens: {stats['total_tokens']}")
-    log.info(f"  Total cost: ${stats['total_cost']:.6f}")
-    log.info(f"  Avg cost per item: ${stats['avg_cost_per_item']:.6f}")
-    log.info("=" * 60)
 
     # 결과 저장
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -233,7 +183,6 @@ def reconstruct_paper(
             {
                 "timestamp": datetime.now().isoformat(),
                 "model": model_name,
-                "statistics": stats,
                 "results": results,
             },
             f,
@@ -267,8 +216,9 @@ def main():
 
         # 처리 실행
         reconstruct_paper(
-            json_path=p, output_path=output_path, max_papers=None, model_name=model_name
+            json_path=p, output_path=output_path, max_papers=1, model_name=model_name
         )
+        break
 
     log.info("Text reconstruction completed!")
 
