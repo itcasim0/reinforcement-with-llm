@@ -1,8 +1,8 @@
 from pathlib import Path
 import shutil
-
 from datetime import datetime
 from zoneinfo import ZoneInfo
+import json
 
 
 def today_datetime() -> str:
@@ -43,3 +43,8 @@ def backup(p: str | Path) -> None:
         p.rename(p.parent / f"{file_name}_{today_datetime()}{ext}")
     elif p.is_dir():
         shutil.move(p, str(p) + f"_{today_datetime()}")
+
+
+def load_json(file_path: str | Path) -> dict:
+    with open(file_path, "r", encoding="utf-8") as f:
+        return json.load(f)

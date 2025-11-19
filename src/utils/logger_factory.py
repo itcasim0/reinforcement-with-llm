@@ -1,11 +1,10 @@
 import logging
-import logging.config
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 DEFAULT_LOG_FORMAT = "%(asctime)s #%(process)d \t %(filename)s(%(lineno)s) \t %(levelname)s - %(message)s"
 DEFAULT_LOG_LEVEL = logging.INFO
-DEFAULT_LOG_PATH = "./logs/py.log"
+DEFAULT_LOG_PATH = "../logs/py.log"
 
 
 def set_stream_handler(

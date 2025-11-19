@@ -1,13 +1,13 @@
-import random
-from typing import Tuple, List
+from typing import Tuple
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Categorical
 
-from .llm.core import client
+from environments.editing_env.env import EditingEnv
 
+from utils.logger_factory import log 
 
 class PPOPolicy(nn.Module):
     """확장된 상태 벡터(obs) -> 정책(액션 분포) + 가치 V(s)"""
@@ -44,7 +44,8 @@ class PPORunner:
 
     def __init__(
         self,
-        env,
+        env: EditingEnv,
+        max_steps: 3,
         state_dim: int,  # = 4 + 1 + num_actions
         num_actions: int,
         gamma: float = 0.95,
@@ -52,15 +53,24 @@ class PPORunner:
         clip_eps: float = 0.2,
         K_epochs: int = 4,
     ):
-        self.env = env
+        # 디바이스 설정 (CUDA 사용 가능하면 CUDA, 아니면 CPU)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        log.info(f"디바이스 설정: {self.device}")
+        
+        # 환경 초기화
+        self.env: EditingEnv = env
+        self.max_steps = max_steps
+
+        # PPOPolicy(신경망 모델) 설계
+        self.num_actions = num_actions
+        self.state_dim = state_dim
+
+        # PPOPolicy(신경망 모델) 하이퍼파라미터
         self.gamma = gamma
         self.clip_eps = clip_eps
         self.K_epochs = K_epochs
 
-        self.num_actions = num_actions
-        self.state_dim = state_dim
-
-        self.policy = PPOPolicy(state_dim=state_dim, num_actions=num_actions)
+        self.policy = PPOPolicy(state_dim=state_dim, num_actions=num_actions).to(self.device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
 
     # -----------------------------
@@ -71,7 +81,6 @@ class PPORunner:
         state: Tuple[float, float, float, float],  # ← float로
         step_idx: int,
         last_action_idx: int,
-        max_steps: int,
     ) -> torch.Tensor:
         """
         state: (g, r, c, o) 정수
@@ -79,16 +88,17 @@ class PPORunner:
         last_action_idx: 직전 액션 인덱스, 없으면 -1
         """
         g, r, c, o = state
-        base = torch.tensor([g, r, c, o], dtype=torch.float32) / 10.0
+        base = torch.tensor([g, r, c, o], dtype=torch.float32, device=self.device) / 10.0
 
         # step_norm: 0 ~ 1
         step_norm = torch.tensor(
-            [step_idx / max_steps],
+            [step_idx / self.max_steps],
             dtype=torch.float32,
+            device=self.device,
         )
 
         # last_action one-hot
-        last_onehot = torch.zeros(self.num_actions, dtype=torch.float32)
+        last_onehot = torch.zeros(self.num_actions, dtype=torch.float32, device=self.device)
         if 0 <= last_action_idx < self.num_actions:
             last_onehot[last_action_idx] = 1.0
 
@@ -98,7 +108,7 @@ class PPORunner:
     # -----------------------------
     # trajectory 수집
     # -----------------------------
-    def collect_trajectory(self, max_steps: int):
+    def _collect_trajectory(self):
         """
         에피소드 하나를 rollout:
         - obs, states, actions, log_probs, rewards, dones, values 수집
@@ -114,12 +124,9 @@ class PPORunner:
         state, _ = self.env.reset()
         last_action_idx = -1  # 첫 step에는 이전 액션 없음
 
-        for t in range(max_steps):
+        for t in range(self.max_steps):
             obs = self._build_obs(
-                state=state,
-                step_idx=t,
-                last_action_idx=last_action_idx,
-                max_steps=max_steps,
+                state=state, step_idx=t, last_action_idx=last_action_idx
             )
             obs_tensor = obs.unsqueeze(0)  # (1, state_dim)
 
@@ -173,8 +180,8 @@ class PPORunner:
             G = r + self.gamma * G
             returns.append(G)
         returns.reverse()
-        returns = torch.tensor(returns, dtype=torch.float32)
-        values_t = torch.tensor(values, dtype=torch.float32)
+        returns = torch.tensor(returns, dtype=torch.float32, device=self.device)
+        values_t = torch.tensor(values, dtype=torch.float32, device=self.device)
         advantages = returns - values_t
 
         if advantages.numel() > 1:
@@ -198,8 +205,8 @@ class PPORunner:
         values = traj["values"]
 
         obs_t = torch.stack(obs_list, dim=0)  # (T, state_dim)
-        actions_t = torch.tensor(actions, dtype=torch.long)  # (T,)
-        old_log_probs_t = torch.tensor(old_log_probs, dtype=torch.float32)  # (T,)
+        actions_t = torch.tensor(actions, dtype=torch.long, device=self.device)  # (T,)
+        old_log_probs_t = torch.tensor(old_log_probs, dtype=torch.float32, device=self.device)  # (T,)
 
         returns, advantages = self.compute_gae(rewards, values, dones)
 
@@ -227,11 +234,11 @@ class PPORunner:
     # -----------------------------
     # Train 루프
     # -----------------------------
-    def train(self, num_episodes: int = 10, max_steps: int = 3):
+    def train(self, num_episodes: int = 10):
         reward_history = []
 
         for ep in range(1, num_episodes + 1):
-            traj = self.collect_trajectory(max_steps=max_steps)
+            traj = self._collect_trajectory()
             ep_return = sum(traj["rewards"])
             reward_history.append(ep_return)
 
@@ -256,7 +263,7 @@ class PPORunner:
         print("-" * 60)
         print(text)
         print("-" * 60)
-        print("초기 점수:", self.env.current_scores)
+        print("초기 점수:", self.env.current_score)
 
         actions_taken = []
         last_action_idx = -1
@@ -297,71 +304,5 @@ class PPORunner:
                 )
                 break
 
-        print("\n[Eval] 최종 점수:", self.env.current_scores)
+        print("\n[Eval] 최종 점수:", self.env.current_score)
         print("선택된 액션 인덱스 시퀀스:", actions_taken)
-
-
-def main():
-
-    # 재현을 위한 랜덤 시드 고정
-    random.seed(42)
-    torch.manual_seed(42)
-
-    return
-
-
-if __name__ == "__main__":
-    # 여기는 네 main.py에 있는 것들을 그대로 재사용한다고 가정
-    from main import (
-        create_pararev_documents,
-        OpenRouterEditorLLM,
-        OpenRouterJudgeLLM,
-        EditingEnv,
-    )
-
-    # documents = create_coedit_documents(
-    #     split="train",
-    #     max_samples=50,       # LLM 호출 비용 감안해서 적당히
-    #     task_filter=["gec"],  # 문법 교정 위주로 하고 싶다면
-    # )
-
-    documents = create_pararev_documents(max_docs=50)
-
-    editor = OpenRouterEditorLLM(
-        client=client,
-        model="openai/gpt-4o-mini",
-        base_cost=0.02,
-    )
-    judge = OpenRouterJudgeLLM(
-        client=client,
-        model="openai/gpt-4.1",
-    )
-
-    env = EditingEnv(
-        documents=documents,
-        editor=editor,
-        judge=judge,
-        max_steps=3,
-        terminal_threshold=3.0,
-        cost_lambda=1.0,
-    )
-
-    runner = PPORunner(
-        env=env,
-        state_dim=4 + 1 + env.num_actions,  # g,r,c,o + step + last_action_one_hot
-        num_actions=env.num_actions,
-        gamma=0.95,
-        lr=3e-4,
-        clip_eps=0.2,
-        K_epochs=4,
-    )
-
-    print("=== PPO Skeleton: Train ===")
-    """
-    TODO: num_episodes 증가 (학습 데이터 수 더 많게)
-    TODO: max_steps 늘렸을 때 stop action 을 빨리 선택하는 경우가 있는지 확인 
-    """
-    runner.train(num_episodes=30, max_steps=6)
-
-    print("\n=== PPO Skeleton: Evaluate ===")
-    runner.evaluate_greedy(max_steps=3)

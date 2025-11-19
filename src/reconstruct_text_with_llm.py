@@ -216,9 +216,8 @@ def main():
 
         # 처리 실행
         reconstruct_paper(
-            json_path=p, output_path=output_path, max_papers=1, model_name=model_name
+            json_path=p, output_path=output_path, max_papers=5, model_name=model_name
         )
-        break
 
     log.info("Text reconstruction completed!")
 
