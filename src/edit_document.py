@@ -1,3 +1,6 @@
+"""
+edit_document.py에는 학습과 평가하는 코드가 공존하므로 참고
+"""
 import sys
 from pathlib import Path
 
@@ -54,7 +57,7 @@ def main():
         gamma=0.95,
         lr=3e-4,
         clip_eps=0.2,
-        K_epochs=4,
+        K_epochs=3,  # 한번의 에피소드 내에서 수행할 신경망 모델 학습 epochs
     )
 
     # 체크포인트에서 재개

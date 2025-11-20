@@ -45,6 +45,16 @@ class PPORunner:
 
     관측 벡터(obs) 구성:
       [ g/5, r/5, c/5, o/5, step_norm, one_hot(last_action, num_actions) ]
+
+    Args:
+        env (EditingEnv): 강화학습 환경 (문서 편집 환경)
+        max_steps (int): 에피소드당 최대 스텝 수
+        state_dim (int): 상태 벡터의 차원 (= 4(점수) + 1(step_norm) + num_actions(이전 액션 one-hot))
+        num_actions (int): 가능한 액션의 개수 (편집 작업 종류)
+        gamma (float): 할인율 (discount factor) - 미래 보상의 가중치. 기본값 0.95
+        lr (float): 학습률 (learning rate) - 옵티마이저의 스텝 크기. 기본값 3e-4
+        clip_eps (float): PPO 클리핑 범위 - 정책 업데이트의 안정성 제어. 기본값 0.2
+        K_epochs (int): PPO 업데이트 반복 횟수 - 수집된 데이터로 몇 번 학습할지. 기본값 3
     """
 
     def __init__(
@@ -56,7 +66,7 @@ class PPORunner:
         gamma: float = 0.95,
         lr: float = 3e-4,
         clip_eps: float = 0.2,
-        K_epochs: int = 4,
+        K_epochs: int = 3,
     ):
         # 디바이스 설정 (CUDA 사용 가능하면 CUDA, 아니면 CPU)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -360,11 +370,27 @@ class PPORunner:
             "episode": episode,
             "total_return": sum(traj["rewards"]),
             "num_steps": len(traj["rewards"]),
-            "steps": []
+            "steps": [],
         }
 
         # 각 스텝별 정보 저장
         for step_idx in range(len(traj["rewards"])):
+            # info 딕셔너리를 JSON 직렬화 가능하도록 변환
+            info = traj["infos"][step_idx] if step_idx < len(traj["infos"]) else {}
+            serializable_info = {}
+            
+            for key, value in info.items():
+                if hasattr(value, '__dict__'):
+                    # DocumentScore 같은 객체는 딕셔너리로 변환
+                    serializable_info[key] = {
+                        "grammar": float(value.grammar),
+                        "readability": float(value.readability),
+                        "coherence": float(value.coherence),
+                        "overall": float(value.overall),
+                    }
+                else:
+                    serializable_info[key] = value
+            
             step_info = {
                 "step": step_idx,
                 "state": {
@@ -379,7 +405,7 @@ class PPORunner:
                 "log_prob": float(traj["log_probs"][step_idx]),
                 "value": float(traj["values"][step_idx]),
                 "done": bool(traj["dones"][step_idx]),
-                "info": traj["infos"][step_idx] if step_idx < len(traj["infos"]) else {}
+                "info": serializable_info,
             }
             traj_data["steps"].append(step_info)
 
@@ -456,7 +482,6 @@ class PPORunner:
                 state=state,
                 step_idx=t,
                 last_action_idx=last_action_idx,
-                max_steps=max_steps,
             )
             obs_t = obs.unsqueeze(0)
 
