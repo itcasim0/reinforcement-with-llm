@@ -5,10 +5,10 @@ from pathlib import Path
 if str(Path(__file__).parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).parent))
 import random
-import argparse
 
 import torch
 
+# internal
 from dataloader.reconstruct_loader import ReconstructDataLoader
 from environments.editing_env.env import EditingEnv
 from methods.ppo import PPORunner
@@ -18,39 +18,17 @@ from utils.logger_factory import log
 
 SEED = 42
 
+CHECKPOINT_DIR = None  # 학습 재개를 위한 설정 (저장된 체크포인트 디렉토리 경로)
+SAVE_CHECKPOINT_DIR = LOGS_DIR / "checkpoints"
+CHECKPOINT_INTERVAL = 1
+NUM_EPISODES = 10
+
 # 재현을 위한 랜덤 시드 고정
 random.seed(SEED)
 torch.manual_seed(SEED)
 
 
 def main():
-    # 명령줄 인자 파싱
-    parser = argparse.ArgumentParser(description="PPO 기반 문서 교정 강화학습")
-    parser.add_argument(
-        "--resume",
-        type=str,
-        default=None,
-        help="체크포인트 디렉토리 또는 파일 경로 (학습 재개 시 사용)",
-    )
-    parser.add_argument(
-        "--checkpoint-dir",
-        type=str,
-        default=LOGS_DIR / "checkpoints",
-        help="체크포인트 저장 디렉토리 (기본값: ./logs/checkpoints)",
-    )
-    parser.add_argument(
-        "--checkpoint-interval",
-        type=int,
-        default=1,
-        help="체크포인트 저장 주기 (에피소드 단위, 기본값: 1)",
-    )
-    parser.add_argument(
-        "--num-episodes",
-        type=int,
-        default=30,
-        help="학습할 에피소드 수 (기본값: 30)",
-    )
-    args = parser.parse_args()
 
     # load data
     log.info("데이터 로드")
@@ -80,10 +58,10 @@ def main():
     )
 
     # 체크포인트에서 재개
-    if args.resume:
+    if CHECKPOINT_DIR:
         try:
-            runner.load_checkpoint(args.resume)
-            log.info(f"체크포인트에서 학습 재개: {args.resume}")
+            runner.load_checkpoint(CHECKPOINT_DIR)
+            log.info(f"체크포인트에서 학습 재개: {CHECKPOINT_DIR}")
         except FileNotFoundError as e:
             log.error(f"체크포인트 로드 실패: {e}")
             return
@@ -91,9 +69,9 @@ def main():
     # 학습 시작
     log.info("학습 시작")
     runner.train(
-        num_episodes=args.num_episodes,
-        checkpoint_dir=args.checkpoint_dir,
-        checkpoint_interval=args.checkpoint_interval,
+        num_episodes=NUM_EPISODES,
+        checkpoint_dir=SAVE_CHECKPOINT_DIR,
+        checkpoint_interval=CHECKPOINT_INTERVAL,
     )
 
     # 평가 시작
