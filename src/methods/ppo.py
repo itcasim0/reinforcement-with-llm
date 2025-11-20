@@ -1,4 +1,5 @@
 from typing import Tuple
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -7,7 +8,7 @@ from torch.distributions import Categorical
 
 from environments.editing_env.env import EditingEnv
 
-from utils.logger_factory import log 
+from utils.logger_factory import log
 
 class PPOPolicy(nn.Module):
     """확장된 상태 벡터(obs) -> 정책(액션 분포) + 가치 V(s)"""
@@ -72,6 +73,9 @@ class PPORunner:
 
         self.policy = PPOPolicy(state_dim=state_dim, num_actions=num_actions).to(self.device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
+        
+        # 체크포인트 관련
+        self.start_episode = 0  # 학습 시작 에피소드 번호
 
     # -----------------------------
     # 관측 벡터 생성: (g,r,c,o) + step + last_action
@@ -108,6 +112,7 @@ class PPORunner:
     # -----------------------------
     # trajectory 수집
     # -----------------------------
+    # TODO: trajectory를 1번(episode 1개) 수집하고 바로 학습하는 상태이므로, 여러 번 수집 후 학습하는 방향도 검토할 것
     def _collect_trajectory(self):
         """
         에피소드 하나를 rollout:
@@ -232,21 +237,115 @@ class PPORunner:
             self.optimizer.step()
 
     # -----------------------------
+    # 체크포인트 저장/로드
+    # -----------------------------
+    def save_checkpoint(self, checkpoint_dir: str, episode: int):
+        """
+        체크포인트 저장
+        
+        Args:
+            checkpoint_dir: 체크포인트를 저장할 디렉토리
+            episode: 현재 에피소드 번호
+        """
+        checkpoint_path = Path(checkpoint_dir)
+        checkpoint_path.mkdir(parents=True, exist_ok=True)
+        
+        checkpoint_file = checkpoint_path / f"checkpoint_ep{episode}.pt"
+        
+        checkpoint = {
+            'episode': episode,
+            'policy_state_dict': self.policy.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'state_dim': self.state_dim,
+            'num_actions': self.num_actions,
+            'gamma': self.gamma,
+            'clip_eps': self.clip_eps,
+            'K_epochs': self.K_epochs,
+        }
+        
+        torch.save(checkpoint, checkpoint_file)
+        log.info(f"체크포인트 저장: {checkpoint_file}")
+        
+        # 최신 체크포인트 파일 경로도 저장
+        latest_file = checkpoint_path / "latest_checkpoint.txt"
+        with open(latest_file, 'w') as f:
+            f.write(str(checkpoint_file))
+    
+    def load_checkpoint(self, checkpoint_path: str):
+        """
+        체크포인트 로드
+        
+        Args:
+            checkpoint_path: 체크포인트 파일 경로 또는 디렉토리 경로
+                           디렉토리 경로인 경우 latest_checkpoint.txt를 참조
+        
+        Returns:
+            로드된 에피소드 번호
+        """
+        path = Path(checkpoint_path)
+        
+        # 디렉토리가 주어진 경우 latest_checkpoint.txt에서 최신 체크포인트 찾기
+        if path.is_dir():
+            latest_file = path / "latest_checkpoint.txt"
+            if latest_file.exists():
+                with open(latest_file, 'r') as f:
+                    checkpoint_file = Path(f.read().strip())
+            else:
+                # latest_checkpoint.txt가 없으면 가장 최근 파일 찾기
+                checkpoints = sorted(path.glob("checkpoint_ep*.pt"))
+                if not checkpoints:
+                    raise FileNotFoundError(f"체크포인트 파일을 찾을 수 없습니다: {path}")
+                checkpoint_file = checkpoints[-1]
+        else:
+            checkpoint_file = path
+        
+        if not checkpoint_file.exists():
+            raise FileNotFoundError(f"체크포인트 파일이 존재하지 않습니다: {checkpoint_file}")
+        
+        log.info(f"체크포인트 로드: {checkpoint_file}")
+        checkpoint = torch.load(checkpoint_file, map_location=self.device)
+        
+        # 모델 및 옵티마이저 상태 복원
+        self.policy.load_state_dict(checkpoint['policy_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.start_episode = checkpoint['episode']
+        
+        log.info(f"에피소드 {self.start_episode}부터 재개합니다.")
+        
+        return self.start_episode
+
+    # -----------------------------
     # Train 루프
     # -----------------------------
-    def train(self, num_episodes: int = 10):
+    def train(self, num_episodes: int = 10, checkpoint_dir: str = None, checkpoint_interval: int = 5):
+        """
+        PPO 학습 루프
+        
+        Args:
+            num_episodes: 총 학습할 에피소드 수
+            checkpoint_dir: 체크포인트를 저장할 디렉토리 (None이면 저장 안 함)
+            checkpoint_interval: 체크포인트 저장 주기 (에피소드 단위)
+        """
         reward_history = []
 
-        for ep in range(1, num_episodes + 1):
+        for ep in range(self.start_episode + 1, self.start_episode + num_episodes + 1):
             traj = self._collect_trajectory()
             ep_return = sum(traj["rewards"])
             reward_history.append(ep_return)
 
-            print(
+            log.info(
                 f"[Episode {ep}] return = {ep_return:.3f}, len = {len(traj['rewards'])}"
             )
 
             self.ppo_update(traj)
+            
+            # 체크포인트 저장
+            if checkpoint_dir and ep % checkpoint_interval == 0:
+                self.save_checkpoint(checkpoint_dir, ep)
+
+        # 학습 종료 시 최종 체크포인트 저장
+        if checkpoint_dir:
+            self.save_checkpoint(checkpoint_dir, self.start_episode + num_episodes)
 
         return reward_history
 
