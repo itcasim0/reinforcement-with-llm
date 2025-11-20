@@ -116,9 +116,9 @@ class OpenRouterEditorLLM:
 
         prompt = f"""작업 지시: {instruction}
 
-[원본 글]
-{text}
-"""
+        [원본 글]
+        {text}
+        """
         return prompt
 
     def edit(self, text: str, action: str) -> Tuple[str, Dict[str, float]]:
@@ -192,28 +192,28 @@ class OpenRouterJudgeLLM:
         LLM에게 문서 품질을 0~10점으로 평가하게 하고, JSON 파싱 후 dict로 반환.
         """
         prompt = f"""
-    다음 글의 품질을 0~10 점수로 평가해줘.
+        다음 글의 품질을 0~10 점수로 평가해줘.
 
-    각 항목:
-    - grammar: 문법 및 맞춤법 정확성
-    - readability: 읽기 쉬운 정도
-    - coherence: 논리적 연결성과 흐름
-    - overall: 전체적인 품질
+        각 항목:
+        - grammar: 문법 및 맞춤법 정확성
+        - readability: 읽기 쉬운 정도
+        - coherence: 논리적 연결성과 흐름
+        - overall: 전체적인 품질
 
-    반드시 아래 JSON 형식 그대로만 출력해.
-    설명 문장은 쓰지 말고, JSON만 출력해.
+        반드시 아래 JSON 형식 그대로만 출력해.
+        설명 문장은 쓰지 말고, JSON만 출력해.
 
-    예시:
-    {{
-    "grammar": 7.0,
-    "readability": 6.5,
-    "coherence": 7.0,
-    "overall": 6.5
-    }}
+        예시:
+        {{
+        "grammar": 7.0,
+        "readability": 6.5,
+        "coherence": 7.0,
+        "overall": 6.5
+        }}
 
-    평가할 글:
-    {text}
-    """
+        평가할 글:
+        {text}
+        """
         resp = self.client.chat.completions.create(
             model=self.model,
             messages=[
