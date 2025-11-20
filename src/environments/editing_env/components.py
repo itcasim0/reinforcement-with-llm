@@ -209,7 +209,7 @@ class DocumentJudge:
 
     def _system_prompt(self):
         return """당신은 글의 품질을 평가하는 심사위원입니다.
-문법, 가독성, 논리적 일관성, 전체 품질을 0~10 점수로 평가합니다.
+문법, 가독성, 논리적 일관성을 0~10 점수로 평가합니다.
 반드시 JSON 형식만 출력하세요."""
 
     def _user_prompt(self, document: Document):
@@ -219,7 +219,6 @@ class DocumentJudge:
 - grammar: 문법 및 맞춤법 정확성
 - readability: 읽기 쉬운 정도
 - coherence: 논리적 연결성과 흐름
-- overall: 전체적인 품질
 
 반드시 아래 JSON 형식 그대로만 출력해.
 설명 문장은 쓰지 말고, JSON만 출력해.
@@ -229,7 +228,6 @@ class DocumentJudge:
 "grammar": 7.0,
 "readability": 6.5,
 "coherence": 7.0,
-"overall": 6.5
 }}
 
 평가할 글:
@@ -278,12 +276,18 @@ class DocumentJudge:
                 # 0~10으로 클램핑
                 return max(0.0, min(10.0, x))
 
-            scores = DocumentScore(
+            # 전체적인 품질을 출력된 결과값을 활용하여 최종 산정
+
+            parsing_score = dict(
                 grammar=safe("grammar", data.get("grammar")),
                 readability=safe("readability", data.get("readability")),
                 coherence=safe("coherence", data.get("coherence")),
-                overall=safe("overall", data.get("overall")),
             )
+
+            overall = round(sum([v for v in parsing_score.values()])/len(parsing_score),1)
+            parsing_score["overall"] = overall
+            scores = DocumentScore(**parsing_score)
+
         except Exception as e:
             print("[WARN] Judge JSON 파싱 실패, 기본값 사용:", e)
             scores = DocumentScore(

@@ -92,6 +92,7 @@ class PPORunner:
 
         # 체크포인트 관련
         self.start_episode = 0  # 학습 시작 에피소드 번호
+        self.checkpoint_session_dir = None  # 현재 학습 세션의 체크포인트 디렉토리
 
     # -----------------------------
     # 관측 벡터 생성: (g,r,c,o) + step + last_action
@@ -272,10 +273,12 @@ class PPORunner:
             checkpoint_dir: 체크포인트를 저장할 디렉토리
             episode: 현재 에피소드 번호
         """
-        checkpoint_path = Path(checkpoint_dir) / f"{today_datetime()}"
-        checkpoint_path.mkdir(parents=True, exist_ok=True)
+        # 세션 디렉토리가 없으면 생성하지 않음 (train 메서드에서 생성)
+        if self.checkpoint_session_dir is None:
+            log.warning("체크포인트 세션 디렉토리가 설정되지 않았습니다.")
+            return
 
-        checkpoint_file = checkpoint_path / f"checkpoint_ep{episode}.pt"
+        checkpoint_file = self.checkpoint_session_dir / f"checkpoint_ep{episode}.pt"
 
         checkpoint = {
             "episode": episode,
@@ -292,7 +295,7 @@ class PPORunner:
         log.info(f"체크포인트 저장: {checkpoint_file}")
 
         # 최신 체크포인트 파일 경로도 저장
-        latest_file = checkpoint_path / "latest_checkpoint.txt"
+        latest_file = self.checkpoint_session_dir / "latest_checkpoint.txt"
         with open(latest_file, "w") as f:
             f.write(str(checkpoint_file))
 
@@ -339,6 +342,10 @@ class PPORunner:
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.start_episode = checkpoint["episode"]
 
+        # 체크포인트 세션 디렉토리 설정 (로드한 체크포인트의 부모 디렉토리)
+        self.checkpoint_session_dir = checkpoint_file.parent
+        log.info(f"체크포인트 세션 디렉토리 설정: {self.checkpoint_session_dir}")
+
         log.info(f"에피소드 {self.start_episode}부터 재개합니다.")
 
         return self.start_episode
@@ -355,11 +362,13 @@ class PPORunner:
             episode: 현재 에피소드 번호
             traj: trajectory 딕셔너리 (states, actions, rewards, infos 등)
         """
-        checkpoint_path = Path(checkpoint_dir) / f"{today_datetime()}"
-        checkpoint_path.mkdir(parents=True, exist_ok=True)
+        # 세션 디렉토리가 없으면 생성하지 않음 (train 메서드에서 생성)
+        if self.checkpoint_session_dir is None:
+            log.warning("체크포인트 세션 디렉토리가 설정되지 않았습니다.")
+            return
 
         # trajectory 정보를 저장할 디렉토리
-        traj_dir = checkpoint_path / "trajectories"
+        traj_dir = self.checkpoint_session_dir / "trajectories"
         traj_dir.mkdir(parents=True, exist_ok=True)
 
         # 에피소드별 trajectory 파일
@@ -432,6 +441,12 @@ class PPORunner:
             checkpoint_dir: 체크포인트를 저장할 디렉토리 (None이면 저장 안 함)
             checkpoint_interval: 체크포인트 저장 주기 (에피소드 단위)
         """
+        # 체크포인트 세션 디렉토리 초기화 (학습 시작 시 한 번만)
+        if checkpoint_dir and self.checkpoint_session_dir is None:
+            self.checkpoint_session_dir = Path(checkpoint_dir) / f"{today_datetime()}"
+            self.checkpoint_session_dir.mkdir(parents=True, exist_ok=True)
+            log.info(f"체크포인트 세션 디렉토리 생성: {self.checkpoint_session_dir}")
+
         reward_history = []
 
         for ep in range(self.start_episode + 1, self.start_episode + num_episodes + 1):
