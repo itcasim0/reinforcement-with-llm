@@ -1,0 +1,56 @@
+{
+  "scoring_criteria": {
+    "length_score": {
+      "weight": 0.15,
+      "optimal_min": 149.0,
+      "optimal_max": 212.0,
+      "target": 174.5,
+      "method": "gaussian_penalty"
+    },
+    "structure_score": {
+      "weight": 0.3,
+      "has_background": 0.514,
+      "has_method": 0.738,
+      "has_results": 0.804,
+      "full_structure_bonus": 0.2
+    },
+    "linguistic_score": {
+      "weight": 0.2,
+      "has_numbers": 0.666,
+      "has_comparison": 0.386,
+      "first_person": 0.906,
+      "target_commas": 11.114
+    },
+    "content_score": {
+      "weight": 0.2,
+      "evaluation": 0.626,
+      "dataset": 0.408,
+      "performance": 0.566,
+      "model": 0.744
+    },
+    "sentence_score": {
+      "weight": 0.15,
+      "target_words_per_sentence": 20.196884172499434,
+      "acceptable_range": [
+        15.196884172499434,
+        25.196884172499434
+      ]
+    }
+  },
+  "thresholds": {
+    "excellent": 0.85,
+    "good": 0.7,
+    "acceptable": 0.55,
+    "poor": 0.4
+  },
+  "statistics": {
+    "based_on": 500,
+    "word_count_distribution": {
+      "q10": 124.0,
+      "q25": 149.0,
+      "q50": 174.5,
+      "q75": 212.0,
+      "q90": 236.0
+    }
+  }
+}

@@ -1,0 +1,500 @@
+{
+  "metadata": {
+    "total_papers": 500,
+    "collection_date": "2025-11-22 22:29:28",
+    "method": "large_scale_multi_category",
+    "categories": [
+      "cs.NE",
+      "cs.LG",
+      "cs.CL",
+      "cs.AI",
+      "cs.RO",
+      "cs.CV"
+    ]
+  },
+  "analysis": {
+    "metadata": {
+      "total_papers": 500,
+      "categories": [
+        "cs.NE",
+        "cs.LG",
+        "cs.CL",
+        "cs.AI",
+        "cs.RO",
+        "cs.CV"
+      ],
+      "year_range": [
+        2025,
+        2025
+      ]
+    },
+    "basic_stats": {
+      "total_papers": 500,
+      "word_count": {
+        "mean": 177.744,
+        "std": 42.68023505089915,
+        "min": 53,
+        "max": 274,
+        "median": 174.5,
+        "q25": 149.0,
+        "q50": 174.5,
+        "q75": 212.0,
+        "q90": 236.0,
+        "q10": 124.0
+      },
+      "char_count": {
+        "mean": 1341.568,
+        "median": 1349.5
+      }
+    },
+    "length_distribution": {
+      "very_short": 0.036,
+      "short": 0.222,
+      "medium": 0.42,
+      "long": 0.286,
+      "very_long": 0.036,
+      "histogram": {
+        "counts": [
+          1,
+          1,
+          5,
+          9,
+          9,
+          21,
+          24,
+          29,
+          43,
+          55,
+          53,
+          36,
+          42,
+          32,
+          41,
+          32,
+          30,
+          21,
+          8,
+          8
+        ],
+        "bin_edges": [
+          53.0,
+          64.05,
+          75.1,
+          86.15,
+          97.2,
+          108.25,
+          119.30000000000001,
+          130.35000000000002,
+          141.4,
+          152.45,
+          163.5,
+          174.55,
+          185.60000000000002,
+          196.65,
+          207.70000000000002,
+          218.75,
+          229.8,
+          240.85000000000002,
+          251.9,
+          262.95000000000005,
+          274.0
+        ]
+      }
+    },
+    "structure_patterns": {
+      "has_background": 0.514,
+      "has_problem": 0.604,
+      "has_method": 0.738,
+      "has_results": 0.804,
+      "has_conclusion": 0.112,
+      "full_structure": 0.212,
+      "starts_with_context": 0.954,
+      "ends_with_impact": 0.332
+    },
+    "linguistic_features": {
+      "has_numbers": 0.666,
+      "has_percentage": 0.232,
+      "has_equation": 0.158,
+      "has_comparison": 0.386,
+      "uses_we": 0.906,
+      "uses_our": 0.518,
+      "uses_this_paper": 0.394,
+      "passive_voice": 0.816,
+      "active_voice": 0.924,
+      "has_parentheses": 0.828,
+      "has_hyphen": 0.986,
+      "has_colon": 0.452,
+      "avg_commas": 11.114
+    },
+    "content_patterns": {
+      "mentions_sota": 0.216,
+      "mentions_dataset": 0.408,
+      "mentions_benchmark": 0.318,
+      "mentions_architecture": 0.154,
+      "mentions_model": 0.744,
+      "mentions_novel": 0.28,
+      "mentions_evaluation": 0.626,
+      "mentions_training": 0.48,
+      "mentions_performance": 0.566,
+      "mentions_efficiency": 0.3,
+      "mentions_scalability": 0.138,
+      "mentions_real_world": 0.258
+    },
+    "keyword_analysis": {
+      "models": 536,
+      "model": 464,
+      "data": 422,
+      "learning": 356,
+      "based": 341,
+      "performance": 329,
+      "framework": 312,
+      "language": 287,
+      "across": 271,
+      "training": 266,
+      "methods": 252,
+      "reasoning": 232,
+      "large": 226,
+      "high": 214,
+      "propose": 208,
+      "multi": 193,
+      "results": 193,
+      "real": 191,
+      "using": 184,
+      "time": 178,
+      "demonstrate": 178,
+      "method": 174,
+      "task": 171,
+      "existing": 169,
+      "accuracy": 168,
+      "experiments": 167,
+      "through": 163,
+      "tasks": 160,
+      "however": 159,
+      "datasets": 158,
+      "introduce": 158,
+      "novel": 157,
+      "state": 155,
+      "generation": 146,
+      "show": 139,
+      "first": 139,
+      "dataset": 137,
+      "human": 136,
+      "approach": 134,
+      "work": 133,
+      "achieves": 132,
+      "visual": 131,
+      "fine": 129,
+      "world": 129,
+      "address": 127,
+      "image": 125,
+      "vision": 122,
+      "information": 122,
+      "llms": 120,
+      "analysis": 119
+    },
+    "sentence_analysis": {
+      "avg_sentences_per_abstract": 8.858,
+      "median_sentences_per_abstract": 8.0,
+      "avg_words_per_sentence": 20.196884172499434,
+      "median_words_per_sentence": 20.0,
+      "sentence_length_std": 10.29850606348639,
+      "first_sentence_avg": 21.128,
+      "last_sentence_avg": 19.234
+    },
+    "advanced_metrics": {
+      "avg_lexical_diversity": 0.7336799289596754,
+      "avg_technical_density": 0.39093306482695683,
+      "avg_readability": 69.4766350714653
+    },
+    "category_comparison": {
+      "cs.NE": {
+        "count": 20,
+        "avg_length": 181.65,
+        "median_length": 185.0
+      },
+      "cs.LG": {
+        "count": 150,
+        "avg_length": 176.70666666666668,
+        "median_length": 172.5
+      },
+      "cs.CL": {
+        "count": 100,
+        "avg_length": 173.87,
+        "median_length": 173.5
+      },
+      "cs.AI": {
+        "count": 50,
+        "avg_length": 174.84,
+        "median_length": 171.5
+      },
+      "cs.RO": {
+        "count": 30,
+        "avg_length": 183.5,
+        "median_length": 179.0
+      },
+      "cs.CV": {
+        "count": 150,
+        "avg_length": 180.66,
+        "median_length": 178.5
+      }
+    }
+  },
+  "papers_sample": [
+    {
+      "title": "Dataset Distillation for Pre-Trained Self-Supervised Vision Models",
+      "abstract": "The task of dataset distillation aims to find a small set of synthetic images such that training a model on them reproduces the performance of the same model trained on a much larger dataset of real samples. Existing distillation methods focus on synthesizing datasets that enable training randomly initialized models. In contrast, state-of-the-art vision approaches are increasingly building on large, pre-trained self-supervised models rather than training from scratch. In this paper, we investigate the problem of distilling datasets that enable us to optimally train linear probes on top of such large, pre-trained vision models. We introduce a method of dataset distillation for this task called Linear Gradient Matching that optimizes the synthetic images such that, when passed through a pre-trained feature extractor, they induce gradients in the linear classifier similar to those produced by the real data. Our method yields synthetic data that outperform all real-image baselines and, remarkably, generalize across pre-trained vision models, enabling us, for instance, to train a linear CLIP probe that performs competitively using a dataset distilled via a DINO backbone. Further, we show that our distilled datasets are exceptionally effective for fine-grained classification and provide a valuable tool for model interpretability, predicting, among other things, how similar two models' embedding spaces are under the platonic representation hypothesis or whether a model is sensitive to spurious correlations in adversarial datasets.",
+      "year": 2025,
+      "arxiv_id": "2511.16674v1",
+      "authors": [
+        "George Cazenavette",
+        "Antonio Torralba",
+        "Vincent Sitzmann"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "Taming the Long-Tail: Efficient Reasoning RL Training with Adaptive Drafter",
+      "abstract": "The emergence of Large Language Models (LLMs) with strong reasoning capabilities marks a significant milestone, unlocking new frontiers in complex problem-solving. However, training these reasoning models, typically using Reinforcement Learning (RL), encounters critical efficiency bottlenecks: response generation during RL training exhibits a persistent long-tail distribution, where a few very long responses dominate execution time, wasting resources and inflating costs. To address this, we propose TLT, a system that accelerates reasoning RL training losslessly by integrating adaptive speculative decoding. Applying speculative decoding in RL is challenging due to the dynamic workloads, evolving target model, and draft model training overhead. TLT overcomes these obstacles with two synergistic components: (1) Adaptive Drafter, a lightweight draft model trained continuously on idle GPUs during long-tail generation to maintain alignment with the target model at no extra cost; and (2) Adaptive Rollout Engine, which maintains a memory-efficient pool of pre-captured CUDAGraphs and adaptively select suitable SD strategies for each input batch. Evaluations demonstrate that TLT achieves over 1.7x end-to-end RL training speedup over state-of-the-art systems, preserves the model accuracy, and yields a high-quality draft model as a free byproduct suitable for efficient deployment. Code is released at https://github.com/mit-han-lab/fastrl.",
+      "year": 2025,
+      "arxiv_id": "2511.16665v1",
+      "authors": [
+        "Qinghao Hu",
+        "Shang Yang",
+        "Junxian Guo"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "Dexterity from Smart Lenses: Multi-Fingered Robot Manipulation with In-the-Wild Human Demonstrations",
+      "abstract": "Learning multi-fingered robot policies from humans performing daily tasks in natural environments has long been a grand goal in the robotics community. Achieving this would mark significant progress toward generalizable robot manipulation in human environments, as it would reduce the reliance on labor-intensive robot data collection. Despite substantial efforts, progress toward this goal has been bottle-necked by the embodiment gap between humans and robots, as well as by difficulties in extracting relevant contextual and motion cues that enable learning of autonomous policies from in-the-wild human videos. We claim that with simple yet sufficiently powerful hardware for obtaining human data and our proposed framework AINA, we are now one significant step closer to achieving this dream. AINA enables learning multi-fingered policies from data collected by anyone, anywhere, and in any environment using Aria Gen 2 glasses. These glasses are lightweight and portable, feature a high-resolution RGB camera, provide accurate on-board 3D head and hand poses, and offer a wide stereo view that can be leveraged for depth estimation of the scene. This setup enables the learning of 3D point-based policies for multi-fingered hands that are robust to background changes and can be deployed directly without requiring any robot data (including online corrections, reinforcement learning, or simulation). We compare our framework against prior human-to-robot policy learning approaches, ablate our design choices, and demonstrate results across nine everyday manipulation tasks. Robot rollouts are best viewed on our website: https://aina-robot.github.io.",
+      "year": 2025,
+      "arxiv_id": "2511.16661v1",
+      "authors": [
+        "Irmak Guzey",
+        "Haozhi Qi",
+        "Julen Urain"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "Solving Spatial Supersensing Without Spatial Supersensing",
+      "abstract": "Cambrian-S aims to take the first steps towards improving video world models with spatial supersensing by introducing (i) two benchmarks, VSI-Super-Recall (VSR) and VSI-Super-Counting (VSC), and (ii) bespoke predictive sensing inference strategies tailored to each benchmark. In this work, we conduct a critical analysis of Cambrian-S across both these fronts. First, we introduce a simple baseline, NoSense, which discards almost all temporal structure and uses only a bag-of-words SigLIP model, yet near-perfectly solves VSR, achieving 95% accuracy even on 4-hour videos. This shows benchmarks like VSR can be nearly solved without spatial cognition, world modeling or spatial supersensing. Second, we hypothesize that the tailored inference methods proposed by Cambrian-S likely exploit shortcut heuristics in the benchmark. We illustrate this with a simple sanity check on the VSC benchmark, called VSC-Repeat: We concatenate each video with itself 1-5 times, which does not change the number of unique objects. However, this simple perturbation entirely collapses the mean relative accuracy of Cambrian-S from 42% to 0%. A system that performs spatial supersensing and integrates information across experiences should recognize views of the same scene and keep object-count predictions unchanged; instead, Cambrian-S inference algorithm relies largely on a shortcut in the VSC benchmark that rooms are never revisited. Taken together, our findings suggest that (i) current VSI-Super benchmarks do not yet reliably measure spatial supersensing, and (ii) predictive-sensing inference recipes used by Cambrian-S improve performance by inadvertently exploiting shortcuts rather than from robust spatial supersensing. We include the response from the Cambrian-S authors (in Appendix A) to provide a balanced perspective alongside our claims. We release our code at: https://github.com/bethgelab/supersanity",
+      "year": 2025,
+      "arxiv_id": "2511.16655v1",
+      "authors": [
+        "Vishaal Udandarao",
+        "Shyamgopal Karthik",
+        "Surabhi S. Nath"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "Evolution Strategies at the Hyperscale",
+      "abstract": "We introduce Evolution Guided General Optimization via Low-rank Learning (EGGROLL), an evolution strategies (ES) algorithm designed to scale backprop-free optimization to large population sizes for modern large neural network architectures with billions of parameters. ES is a set of powerful blackbox optimisation methods that can handle non-differentiable or noisy objectives with excellent scaling potential through parallelisation. Na{ï}ve ES becomes prohibitively expensive at scale due to the computational and memory costs associated with generating matrix perturbations $E\\in\\mathbb{R}^{m\\times n}$ and the batched matrix multiplications needed to compute per-member forward passes. EGGROLL overcomes these bottlenecks by generating random matrices $A\\in \\mathbb{R}^{m\\times r},\\ B\\in \\mathbb{R}^{n\\times r}$ with $r\\ll \\min(m,n)$ to form a low-rank matrix perturbation $A B^\\top$ that are used in place of the full-rank perturbation $E$. As the overall update is an average across a population of $N$ workers, this still results in a high-rank update but with significant memory and computation savings, reducing the auxiliary storage from $mn$ to $r(m+n)$ per layer and the cost of a forward pass from $\\mathcal{O}(mn)$ to $\\mathcal{O}(r(m+n))$ when compared to full-rank ES. A theoretical analysis reveals our low-rank update converges to the full-rank update at a fast $\\mathcal{O}\\left(\\frac{1}{r}\\right)$ rate. Our experiments show that (1) EGGROLL does not compromise the performance of ES in tabula-rasa RL settings, despite being faster, (2) it is competitive with GRPO as a technique for improving LLM reasoning, and (3) EGGROLL enables stable pre-training of nonlinear recurrent language models that operate purely in integer datatypes.",
+      "year": 2025,
+      "arxiv_id": "2511.16652v1",
+      "authors": [
+        "Bidipta Sarkar",
+        "Mattie Fellows",
+        "Juan Agustin Duque"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "Stabilizing Policy Gradient Methods via Reward Profiling",
+      "abstract": "Policy gradient methods, which have been extensively studied in the last decade, offer an effective and efficient framework for reinforcement learning problems. However, their performances can often be unsatisfactory, suffering from unreliable reward improvements and slow convergence, due to high variance in gradient estimations. In this paper, we propose a universal reward profiling framework that can be seamlessly integrated with any policy gradient algorithm, where we selectively update the policy based on high-confidence performance estimations. We theoretically justify that our technique will not slow down the convergence of the baseline policy gradient methods, but with high probability, will result in stable and monotonic improvements of their performance. Empirically, on eight continuous-control benchmarks (Box2D and MuJoCo/PyBullet), our profiling yields up to 1.5x faster convergence to near-optimal returns, up to 1.75x reduction in return variance on some setups. Our profiling approach offers a general, theoretically grounded path to more reliable and efficient policy learning in complex environments.",
+      "year": 2025,
+      "arxiv_id": "2511.16629v1",
+      "authors": [
+        "Shihab Ahmed",
+        "El Houcine Bergou",
+        "Aritra Dutta"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "From Polynomials to Databases: Arithmetic Structures in Galois Theory",
+      "abstract": "We develop a computational framework for classifying Galois groups of irreducible degree-7 polynomials over~$\\mathbb{Q}$, combining explicit resolvent methods with machine learning techniques. A database of over one million normalized projective septics is constructed, each annotated with algebraic invariants~$J_0, \\dots, J_4$ derived from binary transvections. For each polynomial, we compute resolvent factorizations to determine its Galois group among the seven transitive subgroups of~$S_7$ identified by Foulkes. Using this dataset, we train a neurosymbolic classifier that integrates invariant-theoretic features with supervised learning, yielding improved accuracy in detecting rare solvable groups compared to coefficient-based models. The resulting database provides a reproducible resource for constructive Galois theory and supports empirical investigations into group distribution under height constraints. The methodology extends to higher-degree cases and illustrates the utility of hybrid symbolic-numeric techniques in computational algebra.",
+      "year": 2025,
+      "arxiv_id": "2511.16622v1",
+      "authors": [
+        "Jurgen Mezinaj"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "Rate-optimal community detection near the KS threshold via node-robust algorithms",
+      "abstract": "We study community detection in the \\emph{symmetric $k$-stochastic block model}, where $n$ nodes are evenly partitioned into $k$ clusters with intra- and inter-cluster connection probabilities $p$ and $q$, respectively.\n  Our main result is a polynomial-time algorithm that achieves the minimax-optimal misclassification rate\n  \\begin{equation*}\n  \\exp \\Bigl(-\\bigl(1 \\pm o(1)\\bigr) \\tfrac{C}{k}\\Bigr),\n  \\quad \\text{where } C = (\\sqrt{pn} - \\sqrt{qn})^2,\n  \\end{equation*}\n  whenever $C \\ge K\\,k^2\\,\\log k$ for some universal constant $K$, matching the Kesten--Stigum (KS) threshold up to a $\\log k$ factor.\n  Notably, this rate holds even when an adversary corrupts an $η\\le \\exp\\bigl(- (1 \\pm o(1)) \\tfrac{C}{k}\\bigr)$ fraction of the nodes.\n  To the best of our knowledge, the minimax rate was previously only attainable either via computationally inefficient procedures [ZZ15] or via polynomial-time algorithms that require strictly stronger assumptions such as $C \\ge K k^3$ [GMZZ17].\n  In the node-robust setting, the best known algorithm requires the substantially stronger condition $C \\ge K k^{102}$ [LM22].\n  Our results close this gap by providing the first polynomial-time algorithm that achieves the minimax rate near the KS threshold in both settings.\n  Our work has two key technical contributions:\n  (1) we robustify majority voting via the Sum-of-Squares framework,\n  (2) we develop a novel graph bisection algorithm via robust majority voting, which allows us to significantly improve the misclassification rate to $1/\\mathrm{poly}(k)$ for the initial estimation near the KS threshold.",
+      "year": 2025,
+      "arxiv_id": "2511.16613v1",
+      "authors": [
+        "Jingqiu Ding",
+        "Yiding Hua",
+        "Kasper Lindberg"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "Time dependent loss reweighting for flow matching and diffusion models is theoretically justified",
+      "abstract": "This brief note clarifies that, in Generator Matching (which subsumes a large family of flow matching and diffusion models over continuous, manifold, and discrete spaces), both the Bregman divergence loss and the linear parameterization of the generator can depend on both the current state $X_t$ and the time $t$, and we show that the expectation over time in the loss can be taken with respect to a broad class of time distributions. We also show this for Edit Flows, which falls outside of Generator Matching. That the loss can depend on $t$ clarifies that time-dependent loss weighting schemes, often used in practice to stabilize training, are theoretically justified when the specific flow or diffusion scheme is a special case of Generator Matching (or Edit Flows). It also often simplifies the construction of $X_1$-predictor schemes, which are sometimes preferred for model-related reasons. We show examples that rely upon the dependence of linear parameterizations, and of the Bregman divergence loss, on $t$ and $X_t$.",
+      "year": 2025,
+      "arxiv_id": "2511.16599v1",
+      "authors": [
+        "Lukas Billera",
+        "Hedwig Nora Nordlinder",
+        "Ben Murrell"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "Variational Quantum Integrated Sensing and Communication",
+      "abstract": "The integration of sensing and communication functionalities within a common system is one of the main innovation drivers for next-generation networks. In this paper, we introduce a quantum integrated sensing and communication (QISAC) protocol that leverages entanglement in quantum carriers of information to enable both superdense coding and quantum sensing. The proposed approach adaptively optimizes encoding and quantum measurement via variational circuit learning, while employing classical machine learning-based decoders and estimators to process the measurement outcomes. Numerical results for qudit systems demonstrate that the proposed QISAC protocol can achieve a flexible trade-off between classical communication rate and accuracy of parameter estimation.",
+      "year": 2025,
+      "arxiv_id": "2511.16597v1",
+      "authors": [
+        "Ivana Nikoloska",
+        "Osvaldo Simeone"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "Toward Artificial Palpation: Representation Learning of Touch on Soft Bodies",
+      "abstract": "Palpation, the use of touch in medical examination, is almost exclusively performed by humans. We investigate a proof of concept for an artificial palpation method based on self-supervised learning. Our key idea is that an encoder-decoder framework can learn a $\\textit{representation}$ from a sequence of tactile measurements that contains all the relevant information about the palpated object. We conjecture that such a representation can be used for downstream tasks such as tactile imaging and change detection. With enough training data, it should capture intricate patterns in the tactile measurements that go beyond a simple map of forces -- the current state of the art. To validate our approach, we both develop a simulation environment and collect a real-world dataset of soft objects and corresponding ground truth images obtained by magnetic resonance imaging (MRI). We collect palpation sequences using a robot equipped with a tactile sensor, and train a model that predicts sensory readings at different positions on the object. We investigate the representation learned in this process, and demonstrate its use in imaging and change detection.",
+      "year": 2025,
+      "arxiv_id": "2511.16596v1",
+      "authors": [
+        "Zohar Rimon",
+        "Elisei Shafer",
+        "Tal Tepper"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "gfnx: Fast and Scalable Library for Generative Flow Networks in JAX",
+      "abstract": "In this paper, we present gfnx, a fast and scalable package for training and evaluating Generative Flow Networks (GFlowNets) written in JAX. gfnx provides an extensive set of environments and metrics for benchmarking, accompanied with single-file implementations of core objectives for training GFlowNets. We include synthetic hypergrids, multiple sequence generation environments with various editing regimes and particular reward designs for molecular generation, phylogenetic tree construction, Bayesian structure learning, and sampling from the Ising model energy. Across different tasks, gfnx achieves significant wall-clock speedups compared to Pytorch-based benchmarks (such as torchgfn library) and author implementations. For example, gfnx achieves up to 55 times speedup on CPU-based sequence generation environments, and up to 80 times speedup with the GPU-based Bayesian network structure learning setup. Our package provides a diverse set of benchmarks and aims to standardize empirical evaluation and accelerate research and applications of GFlowNets. The library is available on GitHub (https://github.com/d-tiapkin/gfnx) and on pypi (https://pypi.org/project/gfnx/). Documentation is available on https://gfnx.readthedocs.io.",
+      "year": 2025,
+      "arxiv_id": "2511.16592v1",
+      "authors": [
+        "Daniil Tiapkin",
+        "Artem Agarkov",
+        "Nikita Morozov"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "Almost Sure Convergence Analysis of Differentially Private Stochastic Gradient Methods",
+      "abstract": "Differentially private stochastic gradient descent (DP-SGD) has become the standard algorithm for training machine learning models with rigorous privacy guarantees. Despite its widespread use, the theoretical understanding of its long-run behavior remains limited: existing analyses typically establish convergence in expectation or with high probability, but do not address the almost sure convergence of single trajectories. In this work, we prove that DP-SGD converges almost surely under standard smoothness assumptions, both in nonconvex and strongly convex settings, provided the step sizes satisfy some standard decaying conditions. Our analysis extends to momentum variants such as the stochastic heavy ball (DP-SHB) and Nesterov's accelerated gradient (DP-NAG), where we show that careful energy constructions yield similar guarantees. These results provide stronger theoretical foundations for differentially private optimization and suggest that, despite privacy-induced distortions, the algorithm remains pathwise stable in both convex and nonconvex regimes.",
+      "year": 2025,
+      "arxiv_id": "2511.16587v1",
+      "authors": [
+        "Amartya Mukherjee",
+        "Jun Liu"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "Synthesis of Safety Specifications for Probabilistic Systems",
+      "abstract": "Ensuring that agents satisfy safety specifications can be crucial in safety-critical environments. While methods exist for controller synthesis with safe temporal specifications, most existing methods restrict safe temporal specifications to probabilistic-avoidance constraints. Formal methods typically offer more expressive ways to express safety in probabilistic systems, such as Probabilistic Computation Tree Logic (PCTL) formulas. Thus, in this paper, we develop a new approach that supports more general temporal properties expressed in PCTL. Our contribution is twofold. First, we develop a theoretical framework for the Synthesis of safe-PCTL specifications. We show how the reducing global specification satisfaction to local constraints, and define CPCTL, a fragment of safe-PCTL. We demonstrate how the expressiveness of CPCTL makes it a relevant fragment for the Synthesis Problem. Second, we leverage these results and propose a new Value Iteration-based algorithm to solve the synthesis problem for these more general temporal properties, and we prove the soundness and completeness of our method.",
+      "year": 2025,
+      "arxiv_id": "2511.16579v1",
+      "authors": [
+        "Gaspard Ohlmann",
+        "Edwin Hamel-De le Court",
+        "Francesco Belardinelli"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "ECPv2: Fast, Efficient, and Scalable Global Optimization of Lipschitz Functions",
+      "abstract": "We propose ECPv2, a scalable and theoretically grounded algorithm for global optimization of Lipschitz-continuous functions with unknown Lipschitz constants. Building on the Every Call is Precious (ECP) framework, which ensures that each accepted function evaluation is potentially informative, ECPv2 addresses key limitations of ECP, including high computational cost and overly conservative early behavior. ECPv2 introduces three innovations: (i) an adaptive lower bound to avoid vacuous acceptance regions, (ii) a Worst-m memory mechanism that restricts comparisons to a fixed-size subset of past evaluations, and (iii) a fixed random projection to accelerate distance computations in high dimensions. We theoretically show that ECPv2 retains ECP's no-regret guarantees with optimal finite-time bounds and expands the acceptance region with high probability. We further empirically validate these findings through extensive experiments and ablation studies. Using principled hyperparameter settings, we evaluate ECPv2 across a wide range of high-dimensional, non-convex optimization problems. Across benchmarks, ECPv2 consistently matches or outperforms state-of-the-art optimizers, while significantly reducing wall-clock time.",
+      "year": 2025,
+      "arxiv_id": "2511.16575v1",
+      "authors": [
+        "Fares Fourati",
+        "Mohamed-Slim Alouini",
+        "Vaneet Aggarwal"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "An Exterior-Embedding Neural Operator Framework for Preserving Conservation Laws",
+      "abstract": "Neural operators have demonstrated considerable effectiveness in accelerating the solution of time-dependent partial differential equations (PDEs) by directly learning governing physical laws from data. However, for PDEs governed by conservation laws(e.g., conservation of mass, energy, or matter), existing neural operators fail to satisfy conservation properties, which leads to degraded model performance and limited generalizability. Moreover, we observe that distinct PDE problems generally require different optimal neural network architectures. This finding underscores the inherent limitations of specialized models in generalizing across diverse problem domains.\n  To address these limitations, we propose Exterior-Embedded Conservation Framework (ECF), a universal conserving framework that can be integrated with various data-driven neural operators to enforce conservation laws strictly in predictions. The framework consists of two key components: a conservation quantity encoder that extracts conserved quantities from input data, and a conservation quantity decoder that adjusts the neural operator's predictions using these quantities to ensure strict conservation compliance in the final output. Since our architecture enforces conservation laws, we theoretically prove that it enhances model performance. To validate the performance of our method, we conduct experiments on multiple conservation-law-constrained PDE scenarios, including adiabatic systems, shallow water equations, and the Allen-Cahn problem. These baselines demonstrate that our method effectively improves model accuracy while strictly enforcing conservation laws in the predictions.",
+      "year": 2025,
+      "arxiv_id": "2511.16573v1",
+      "authors": [
+        "Huanshuo Dong",
+        "Hong Wang",
+        "Hao Wu"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "Boosting Predictive Performance on Tabular Data through Data Augmentation with Latent-Space Flow-Based Diffusion",
+      "abstract": "Severe class imbalance is common in real-world tabular learning, where rare but important minority classes are essential for reliable prediction. Existing generative oversampling methods such as GANs, VAEs, and diffusion models can improve minority-class performance, but they often struggle with tabular heterogeneity, training stability, and privacy concerns. We propose a family of latent-space, tree-driven diffusion methods for minority oversampling that use conditional flow matching with gradient-boosted trees as the vector-field learner. The models operate in compact latent spaces to preserve tabular structure and reduce computation. We introduce three variants: PCAForest, which uses linear PCA embedding; EmbedForest, which uses a learned nonlinear embedding; and AttentionForest, which uses an attention-augmented embedding. Each method couples a GBT-based flow with a decoder back to the original feature space. Across 11 datasets from healthcare, finance, and manufacturing, AttentionForest achieves the best average minority recall while maintaining competitive precision, calibration, and distributional similarity. PCAForest and EmbedForest reach similar utility with much faster generation, offering favorable accuracy-efficiency trade-offs. Privacy evaluated with nearest-neighbor distance ratio and distance-to-closest-record is comparable to or better than the ForestDiffusion baseline. Ablation studies show that smaller embeddings tend to improve minority recall, while aggressive learning rates harm stability. Overall, latent-space, tree-driven diffusion provides an efficient and privacy-aware approach to high-fidelity tabular data augmentation under severe class imbalance.",
+      "year": 2025,
+      "arxiv_id": "2511.16571v1",
+      "authors": [
+        "Md. Tawfique Ihsan",
+        "Md. Rakibul Hasan Rafi",
+        "Ahmed Shoyeb Raihan"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "Toward Valid Generative Clinical Trial Data with Survival Endpoints",
+      "abstract": "Clinical trials face mounting challenges: fragmented patient populations, slow enrollment, and unsustainable costs, particularly for late phase trials in oncology and rare diseases. While external control arms built from real-world data have been explored, a promising alternative is the generation of synthetic control arms using generative AI. A central challenge is the generation of time-to-event outcomes, which constitute primary endpoints in oncology and rare disease trials, but are difficult to model under censoring and small sample sizes. Existing generative approaches, largely GAN-based, are data-hungry, unstable, and rely on strong assumptions such as independent censoring. We introduce a variational autoencoder (VAE) that jointly generates mixed-type covariates and survival outcomes within a unified latent variable framework, without assuming independent censoring. Across synthetic and real trial datasets, we evaluate our model in two realistic scenarios: (i) data sharing under privacy constraints, where synthetic controls substitute for original data, and (ii) control-arm augmentation, where synthetic patients mitigate imbalances between treated and control groups. Our method outperforms GAN baselines on fidelity, utility, and privacy metrics, while revealing systematic miscalibration of type I error and power. We propose a post-generation selection procedure that improves calibration, highlighting both progress and open challenges for generative survival modeling.",
+      "year": 2025,
+      "arxiv_id": "2511.16551v1",
+      "authors": [
+        "Perrine Chassat",
+        "Van Tuan Nguyen",
+        "Lucas Ducrot"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "Broad stochastic configuration residual learning system for norm-convergent universal approximation",
+      "abstract": "Universal approximation serves as the foundation of neural network learning algorithms. However, some networks establish their universal approximation property by demonstrating that the iterative errors converge in probability measure rather than the more rigorous norm convergence, which makes the universal approximation property of randomized learning networks highly sensitive to random parameter selection, Broad residual learning system (BRLS), as a member of randomized learning models, also encounters this issue. We theoretically demonstrate the limitation of its universal approximation property, that is, the iterative errors do not satisfy norm convergence if the selection of random parameters is inappropriate and the convergence rate meets certain conditions. To address this issue, we propose the broad stochastic configuration residual learning system (BSCRLS) algorithm, which features a novel supervisory mechanism adaptively constraining the range settings of random parameters on the basis of BRLS framework, Furthermore, we prove the universal approximation theorem of BSCRLS based on the more stringent norm convergence. Three versions of incremental BSCRLS algorithms are presented to satisfy the application requirements of various network updates. Solar panels dust detection experiments are performed on publicly available dataset and compared with 13 deep and broad learning algorithms. Experimental results reveal the effectiveness and superiority of BSCRLS algorithms.",
+      "year": 2025,
+      "arxiv_id": "2511.16550v1",
+      "authors": [
+        "Han Su",
+        "Zhongyan Li",
+        "Wanquan Liu"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    },
+    {
+      "title": "FairLRF: Achieving Fairness through Sparse Low Rank Factorization",
+      "abstract": "As deep learning (DL) techniques become integral to various applications, ensuring model fairness while maintaining high performance has become increasingly critical, particularly in sensitive fields such as medical diagnosis. Although a variety of bias-mitigation methods have been proposed, many rely on computationally expensive debiasing strategies or suffer substantial drops in model accuracy, which limits their practicality in real-world, resource-constrained settings. To address this issue, we propose a fairness-oriented low rank factorization (LRF) framework that leverages singular value decomposition (SVD) to improve DL model fairness. Unlike traditional SVD, which is mainly used for model compression by decomposing and reducing weight matrices, our work shows that SVD can also serve as an effective tool for fairness enhancement. Specifically, we observed that elements in the unitary matrices obtained from SVD contribute unequally to model bias across groups defined by sensitive attributes. Motivated by this observation, we propose a method, named FairLRF, that selectively removes bias-inducing elements from unitary matrices to reduce group disparities, thus enhancing model fairness. Extensive experiments show that our method outperforms conventional LRF methods as well as state-of-the-art fairness-enhancing techniques. Additionally, an ablation study examines how major hyper-parameters may influence the performance of processed models. To the best of our knowledge, this is the first work utilizing SVD not primarily for compression but for fairness enhancement.",
+      "year": 2025,
+      "arxiv_id": "2511.16549v1",
+      "authors": [
+        "Yuanbo Guo",
+        "Jun Xia",
+        "Yiyu Shi"
+      ],
+      "category": "cs.LG",
+      "type": "recent_paper"
+    }
+  ]
+}
