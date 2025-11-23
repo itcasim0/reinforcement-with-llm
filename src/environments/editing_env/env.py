@@ -70,6 +70,8 @@ class EditingEnv:
         self.current_text = base_doc.text
 
         self.current_score = self.judge.score(self.current_text)
+        # abstract 전용 평가
+        # self.current_score = self.judge.score_abstract(self.current_text)
         state = self._scores_to_state(self.current_score)
         return state, self.current_text
 
@@ -131,6 +133,7 @@ class EditingEnv:
 
         # 2) LLM 호출 후 점수 업데이트
         new_scores = self.judge.score(self.current_text)
+        # new_scores = self.judge.score_abstract(self.current_text)
         self.current_score = new_scores
         new_overall = new_scores.overall
 

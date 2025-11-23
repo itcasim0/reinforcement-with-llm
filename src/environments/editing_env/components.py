@@ -27,6 +27,24 @@ class DocumentScore:
     coherence: float = 5.0
     overall: float = 5.0
 
+@dataclass
+class AbstractScore:
+    """
+    Abstract 점수 클래스 (주석 처리용)
+    각 점수는 0~10의 값을 가짐
+    
+    NOTE: score_abstract()를 활성화할 때 사용
+    """
+    structure: float = 5.0       # 구조적 완성도
+    length: float = 5.0           # 길이 적절성
+    academic: float = 5.0         # 학술적 스타일
+    density: float = 5.0          # 정보 밀도
+    clarity: float = 5.0          # 명확성
+    coherence: float = 5.0        # 일관성
+    overall: float = 5.0          # 전체 점수
+    grade: str = "C (Acceptable)"  # 등급
+
+
 
 class DocumentEditor:
     """
@@ -206,6 +224,12 @@ class DocumentJudge:
 
     def __init__(self):
         self.model = "openai/gpt-4o"
+        # ============================================================
+        # 아이디어 낸 평가 방법 (주석 처리 필요시 활성화)
+        # ============================================================
+        from eval.eval import AbstractQualityEvaluator
+        self.abstract_evaluator = AbstractQualityEvaluator()
+        
 
     def _system_prompt(self):
         return """당신은 글의 품질을 평가하는 심사위원입니다.
@@ -295,3 +319,112 @@ class DocumentJudge:
             )
 
         return scores
+    
+    # ================================================================
+    # 아이디어 낸 평가 방법 (주석 처리 필요시 활성화)
+    # ================================================================
+    
+    def score_abstract(self, document) -> DocumentScore:
+        """
+        Abstract 전용 평가 (500개 논문 분석 기반)
+        
+        AbstractQualityEvaluator의 항목을 DocumentScore로 자연스럽게 매핑:
+        - grammar <- structure (구조적 완성도)
+        - readability <- clarity (명확성)
+        - coherence <- coherence (일관성)
+        - overall <- overall (전체 점수)
+        
+        Args:
+            document: Document 객체, 문자열(str), 또는 Document.text
+            
+        Returns:
+            DocumentScore: 0~10 스케일 (env.py와 호환)
+        """
+        # 입력 타입에 따라 텍스트 추출
+        if isinstance(document, str):
+            text = document
+        elif isinstance(document, Document):
+            text = document.text
+        elif hasattr(document, 'text'):
+            text = document.text
+        else:
+            raise ValueError(f"Unsupported type: {type(document)}")
+        
+        # AbstractQualityEvaluator 호출
+        result = self.abstract_evaluator.evaluate_abstract(text)
+        
+        # 0~1 스케일을 0~10으로 변환 후 매핑
+        grammar = result['structure']['structure_completeness'] * 10.0
+        readability = result['clarity']['clarity_score'] * 10.0
+        coherence = result['coherence']['coherence_score'] * 10.0
+        overall = result['overall_score'] * 10.0
+        
+        return DocumentScore(
+            grammar=round(grammar, 1),
+            readability=round(readability, 1),
+            coherence=round(coherence, 1),
+            overall=round(overall, 1)
+        )
+    # NOTE : 기존에 사용하던 param들을 최대한 따라가서 함수 바꿔서 사용할 시에 문제 안생기게 하기 위함.
+    
+    # def get_abstract_detailed_scores(self, document) -> dict:
+    #     """
+    #     Abstract의 상세 점수를 모두 반환
+    #     
+    #     6개 세부 항목 + 등급을 모두 확인하고 싶을 때 사용
+    #     
+    #     Returns:
+    #         dict: {
+    #             'structure': 7.5,      # DocumentScore.grammar에 해당
+    #             'length': 8.0,         # 추가 정보
+    #             'academic': 6.5,       # 추가 정보
+    #             'density': 7.2,        # 추가 정보
+    #             'clarity': 7.0,        # DocumentScore.readability에 해당
+    #             'coherence': 7.8,      # DocumentScore.coherence에 해당
+    #             'overall': 7.5,        # DocumentScore.overall에 해당
+    #             'grade': 'B (Good)'
+    #         }
+    #     """
+    #     if isinstance(document, str):
+    #         text = document
+    #     elif isinstance(document, Document):
+    #         text = document.text
+    #     elif hasattr(document, 'text'):
+    #         text = document.text
+    #     else:
+    #         raise ValueError(f"Unsupported type: {type(document)}")
+    #     
+    #     result = self.abstract_evaluator.evaluate_abstract(text)
+    #     
+    #     return {
+    #         'structure': round(result['structure']['structure_completeness'] * 10, 1),
+    #         'length': round(result['length']['overall_length_score'] * 10, 1),
+    #         'academic': round(result['academic_style']['academic_style_score'] * 10, 1),
+    #         'density': round(result['information_density']['information_density_score'] * 10, 1),
+    #         'clarity': round(result['clarity']['clarity_score'] * 10, 1),
+    #         'coherence': round(result['coherence']['coherence_score'] * 10, 1),
+    #         'overall': round(result['overall_score'] * 10, 1),
+    #         'grade': result['grade']
+    #     }
+    # NOTE : 기존에 사용하던 param들을 최대한 따라가서 함수 바꿔서 사용할 시에 문제 안생기게 하기 위함. (detail 값)
+    
+    # def get_abstract_detailed_scores(self, text: str) -> dict:
+    #     """
+    #     Abstract의 상세 점수를 dict로 반환
+    #     
+    #     6개 세부 항목의 원본 점수를 모두 확인하고 싶을 때 사용
+    #     
+    #     Returns:
+    #         dict: AbstractQualityEvaluator의 원본 결과
+    #         {
+    #             'overall_score': 0.73,
+    #             'grade': 'B (Good)',
+    #             'structure': {...},
+    #             'length': {...},
+    #             'academic_style': {...},
+    #             'information_density': {...},
+    #             'clarity': {...},
+    #             'coherence': {...}
+    #         }
+    #     """
+    #     return self.abstract_evaluator.evaluate_abstract(text)
