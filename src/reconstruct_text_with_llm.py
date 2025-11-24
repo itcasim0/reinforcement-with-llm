@@ -1,10 +1,11 @@
 """
-LLM을 사용하여 논문 요약 데이터의 original_text를 재구성하는 스크립트
+LLM을 사용하여 논문 요약 데이터의 abstract를 재구성하는 스크립트
 
-데이터 구조:
-- JSON 파일에는 논문 정보가 포함되어 있으며
-- 각 논문에는 summary_entire 필드가 있고
-- summary_entire에는 orginal_text와 summary_text가 포함됨
+데이터 구조 (변경 후):
+- JSON 파일은 하나의 dict
+- "metadata": 메타 정보 (total_papers, source_files, conversion_date, years 등)
+- "papers": 논문 리스트
+  - 각 논문: {title, author, abstract, journal, source_file, ...}
 """
 
 import json
@@ -26,7 +27,7 @@ class TextReconstructorLLM:
         """
         self.model_name = model_name
 
-    def reconstruct_text(self, original_text: str) -> Dict[str, Any]:
+    def reconstruct_text(self, original_text: str) -> str:
         """
         원본 텍스트를 LLM으로 재구성
 
@@ -34,10 +35,10 @@ class TextReconstructorLLM:
             original_text: 재구성할 원본 텍스트
 
         Returns:
-            재구성 결과 딕셔너리 (reconstructed_text, tokens, cost)
+            재구성된 텍스트 (문자열)
         """
         # 프롬프트 구성
-        prompt = f"""[원본 텍스트]를 [재구성 사항]을 참고하여 적절히 바꿔줘.
+        prompt = """[원본 텍스트]를 [재구성 사항]을 참고하여 적절히 바꿔줘.
 
 [재구성 사항]
 1. 문법, 맞춤법, 띄어쓰기, 시제 오류가 있도록 해.
@@ -45,6 +46,7 @@ class TextReconstructorLLM:
 3. 중복되거나 불필요한 부분을 추가하고 장황하게 구성해.
 4. 문장과 문단 순서를 조정해서 논리가 없는 흐름으로 부자연스럽게 해줘.
 """
+
         content = f"""[원본 텍스트]
 {original_text}
 
@@ -61,36 +63,40 @@ class TextReconstructorLLM:
             )
 
             # --- 응답 파싱 ---
-            content = response.choices[0].message.content
-            return content
+            reconstructed = response.choices[0].message.content
+            return reconstructed
 
         except Exception as e:
             log.error(f"텍스트 재구성 중 오류 발생: {e}")
             return ""
 
 
-def load_paper_data(json_path: str) -> List[Dict[str, Any]]:
+def load_paper_data(json_path: Path) -> List[Dict[str, Any]]:
     """
-    논문 JSON 파일 로드
+    논문 JSON 파일 로드 (새 데이터 구조용)
 
     Args:
         json_path: JSON 파일 경로
 
     Returns:
-        논문 데이터 리스트
+        논문 데이터 리스트 (data["papers"])
     """
     log.info(f"Loading data from: {json_path}")
 
     with open(json_path, "r", encoding="utf-8") as f:
-        data: List[dict] = json.load(f)
+        data = json.load(f)
 
-    # 데이터 구조: [{"totalcount": N, "data": [...]}]
-    if isinstance(data, list) and len(data) > 0:
-        papers = data[0].get("data", [])
+    # 기대 구조:
+    # {
+    #   "metadata": {...},
+    #   "papers": [ {...}, {...}, ... ]
+    # }
+    if isinstance(data, dict) and "papers" in data:
+        papers = data.get("papers", [])
         log.info(f"Loaded {len(papers)} papers")
         return papers
 
-    log.warning("Unexpected data structure")
+    log.warning("Unexpected data structure: 'papers' key not found")
     return []
 
 
@@ -101,103 +107,68 @@ def reconstruct_paper(
     model_name: str = "openai/gpt-4o-mini",
 ):
     """
-    논문 데이터를 처리하여 텍스트 재구성
-
-    Args:
-        json_path: 입력 JSON 파일 경로
-        output_path: 출력 JSON 파일 경로 (None이면 자동 생성)
-        max_papers: 하나의 JSON내에 논문 개수 제한
-        model_name: 사용할 LLM 모델명
+    논문 데이터를 처리하여 텍스트 재구성 (개별 저장 버전)
     """
 
-    # 데이터 로드
     papers = load_paper_data(json_path)
-
     if not papers:
         log.error("No papers to process")
         return
 
-    # 처리할 아이템 수 제한
     if max_papers:
         papers = papers[:max_papers]
 
     log.info(f"Processing {len(papers)} papers")
 
-    # llm기반 reconstructor 초기화
     reconstructor = TextReconstructorLLM(model_name=model_name)
 
-    # 결과 저장 리스트
-    results = []
+    # output JSON 파일 생성
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_file = output_path / f"{json_path.stem}_{timestamp}.json"
 
-    # 각 논문 처리
+    # 파일이 없다면 빈 리스트 형태로 초기화
+    if not output_file.exists():
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump({"results": []}, f, ensure_ascii=False, indent=2)
+
     for idx, paper in enumerate(papers):
-        log.info(
-            f"Processing paper {idx + 1}/{len(papers)}: {paper.get('title', 'N/A')}"
-        )
+        title = paper.get("title", "N/A")
+        log.info(f"[{idx+1}/{len(papers)}] Processing: {title}")
 
-        summary_entries = paper.get("summary_entire", [])
-
-        if not summary_entries:
-            log.warning(f"No summary_entire found for paper {idx + 1}")
+        abstract = (paper.get("abstract") or "").strip()
+        if not abstract:
+            log.warning(f"No abstract found for {title}")
             continue
 
-        # 각 summary_entire 항목 처리
-        reconstructed_summaries = []
-        for entry in summary_entries:
-            # 'orginal_text' 주의! (typo in source data)
-            original_text = entry.get("orginal_text", "")
+        # LLM 재구성
+        reconstructed = reconstructor.reconstruct_text(abstract)
 
-            if not original_text:
-                log.warning(f"Empty original text in paper {idx + 1}")
-                continue
-
-            # 텍스트 재구성
-            result = reconstructor.reconstruct_text(original_text)
-
-            reconstructed_summaries.append(
-                {
-                    "original_text": original_text,
-                    "reconstructed_text": result,
-                }
-            )
-
-        # 논문 결과 저장
         paper_result = {
-            "doc_id": paper.get("doc_id"),
-            "title": paper.get("title"),
-            "date": paper.get("date"),
-            "reconstructed_summaries": reconstructed_summaries,
+            "title": title,
+            "author": paper.get("author"),
+            "journal": paper.get("journal"),
+            "abstract_original": abstract,
+            "abstract_reconstructed": reconstructed,
         }
-        results.append(paper_result)
 
-    # 결과 저장
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = f"{json_path.stem}_{timestamp}.json"
-    if output_path is None:
-        output_path = Path("./")
+        # 기존 파일 내용 읽기
+        with open(output_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
 
-    output_path.mkdir(parents=True, exist_ok=True)
+        # append
+        data["results"].append(paper_result)
 
-    with open(output_path / output_file, "w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "timestamp": datetime.now().isoformat(),
-                "model": model_name,
-                "results": results,
-            },
-            f,
-            ensure_ascii=False,
-            indent=2,
-        )
+        # 다시 저장
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
-    log.info(f"Results saved to: {output_path}")
-
+    log.info(f"All results saved to: {output_file}")
 
 def main():
     """메인 함수"""
 
-    # 논문 데이터 경로
-    paper_data_dir = Path(r"D:\SMC\projects\reinforcement-with-llm\data\paper_data")
+    # 논문 데이터 경로 (기존과 동일하게 paper 디렉터리 아래에 json 이 있다고 가정)
+    paper_data_dir = Path("data/paper_data")
     paper_dir = paper_data_dir / "paper"
     paper_paths = sorted(list(paper_dir.glob("*.json")))
 
@@ -216,7 +187,10 @@ def main():
 
         # 처리 실행
         reconstruct_paper(
-            json_path=p, output_path=output_path, max_papers=5, model_name=model_name
+            json_path=p,
+            output_path=output_path,
+            max_papers=50,  # 필요에 따라 조정
+            model_name=model_name,
         )
 
     log.info("Text reconstruction completed!")
