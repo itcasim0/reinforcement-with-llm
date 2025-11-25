@@ -1,7 +1,10 @@
 from typing import List, Dict, Tuple
 import random
 
-from .components import Document, DocumentJudge, DocumentEditor, DocumentScore
+from typing import override
+
+from .components.component import Document, DocumentJudge, DocumentScore, Action
+from .components.editor import DocumentEditor, OfflineSingleDocEditor
 
 
 class EditingEnv:
@@ -43,13 +46,7 @@ class EditingEnv:
         self.cost_lambda = cost_lambda
         self.repeat_penalty = repeat_penalty
 
-        self.actions = [
-            "fix_grammar",
-            "improve_clarity",
-            "make_concise",
-            "improve_structure",
-            "stop_editing",
-        ]
+        self.actions = Action.as_list()
         self.num_actions = len(self.actions)
 
         # 현재 에피소드 상태
@@ -60,6 +57,9 @@ class EditingEnv:
         # 같은 액션 반복 패널티를 위해 이전에 사용한 액션 기록
         self.used_actions = set()
 
+        # step마다 사용된 action을 기록하기 위함
+        self.action_history = []
+
     def reset(self) -> Tuple[Tuple[int, int, int, int], str]:
         """
         에피소드 초기화
@@ -69,6 +69,7 @@ class EditingEnv:
         """
         self.current_step = 0
         self.used_actions = set()  # 에피소드 시작할 때 사용한 액션 기록 초기화
+        self.action_history = []  # step마다 사용된 action을 기록하기 위함
 
         # 비복원 추출: 리스트가 비었으면 다시 채움
         if not self.available_documents:
@@ -100,6 +101,9 @@ class EditingEnv:
             scores.overall,
         )
 
+    def _edit(self, action):
+        return self.editor.edit(self.current_text, action)
+
     def step(
         self, action_index: int
     ) -> Tuple[Tuple[float, float, float, float], float, bool, Dict]:
@@ -110,6 +114,7 @@ class EditingEnv:
         """
         assert 0 <= action_index < self.num_actions
         action = self.actions[action_index]
+        self.action_history.append(action)
 
         prev_scores = self.current_score
         prev_overall = prev_scores.overall
@@ -131,10 +136,12 @@ class EditingEnv:
 
             # stop에서는 반복 패널티 적용 X
             self.used_actions.add(action)
+
+            self.action_history.append(action)
             return next_state, reward, done, info
 
         # 문서 편집 클래스 호출
-        edited_text, cost_info = self.editor.edit(self.current_text, action)
+        edited_text, cost_info = self._edit(action)
         self.current_text = edited_text
         self.current_step += 1
 
@@ -222,3 +229,14 @@ class EditingEnv:
         avg_score = (g + r + c + o) / 4.0  # 0~10
         # 0~10 → -1 ~ +1
         return (avg_score - 5.0) / 5.0
+
+
+class OfflineEditingEnv(EditingEnv):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.editor = OfflineSingleDocEditor()
+
+    @override
+    def _edit(self, _):
+        return self.editor.edit(self.action_history)

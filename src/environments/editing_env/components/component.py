@@ -1,7 +1,8 @@
 from typing import Dict, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 import json
 
+# internal
 from llm.core import client
 
 
@@ -26,6 +27,19 @@ class DocumentScore:
     readability: float = 5.0
     coherence: float = 5.0
     overall: float = 5.0
+
+
+@dataclass
+class Action:
+    fix_grammar: str = "fix_grammar"
+    improve_clarity: str = "improve_clarity"
+    make_concise: str = "make_concise"
+    improve_structure: str = "improve_structure"
+    stop_editing: str = "stop_editing"
+
+    @classmethod
+    def as_list(cls):
+        return [getattr(cls, f.name) for f in fields(cls)]
 
 
 @dataclass
@@ -56,7 +70,7 @@ class DocumentEditor:
 
     def __init__(
         self,
-        model:str = "google/gemma-3-27b-it",
+        model: str = "google/gemma-3-27b-it",
         base_cost: float = 0.02,
         price_per_1k_tokens: float = 0.00015,
     ):

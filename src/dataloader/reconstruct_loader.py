@@ -2,7 +2,7 @@ from typing import List
 
 from config.paths import DATA_DIR
 
-from environments.editing_env.components import Document
+from environments.editing_env.components.component import Document
 
 from utils.util import load_json
 
