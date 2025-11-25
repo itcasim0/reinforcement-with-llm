@@ -1,6 +1,7 @@
 """
 edit_document.py에는 학습과 평가하는 코드가 공존하므로 참고
 """
+
 import sys
 from pathlib import Path
 
@@ -12,7 +13,7 @@ import random
 import torch
 
 # internal
-from dataloader.reconstruct_loader import ReconstructDataLoader
+from dataloader.reconstruct_loader import DomesticReconstructDataLoader
 from environments.editing_env.env import EditingEnv
 from methods.ppo import PPORunner
 
@@ -35,7 +36,7 @@ def main():
 
     # load data
     log.info("데이터 로드")
-    dataloader = ReconstructDataLoader()
+    dataloader = DomesticReconstructDataLoader()
     documents = dataloader.get_reconstructed_text(max_docs=5)
 
     # 강화학습 환경 구성
