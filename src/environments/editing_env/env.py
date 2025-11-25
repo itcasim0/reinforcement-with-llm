@@ -6,7 +6,7 @@ from .components import Document, DocumentJudge, DocumentEditor, DocumentScore
 
 class EditingEnv:
     """
-    문서 자동 교정 강화학습 환경.
+    문서 자동 교정 강화학습 환경
 
     - 상태: (grammar, readability, coherence, overall) 점수 (각 0~5 정수로 반올림)
     - 행동:
@@ -23,6 +23,7 @@ class EditingEnv:
         max_steps: 3,
         terminal_threshold: float = 4.0,
         cost_lambda: float = 1.0,
+        repeat_penalty: float = 0.3,  # 같은 액션 반복 사용 시 패널티
     ):
         self.documents = documents
         self.max_steps = max_steps
@@ -31,6 +32,7 @@ class EditingEnv:
         self.judge = DocumentJudge()
         self.terminal_threshold = terminal_threshold
         self.cost_lambda = cost_lambda
+        self.repeat_penalty = repeat_penalty
 
         self.actions = [
             "fix_grammar",
@@ -46,8 +48,8 @@ class EditingEnv:
         self.current_score = DocumentScore()
         self.current_step: int = 0
 
-        # 같은 액션 반복 패널티를 위해 직전 액션 기억
-        self.last_action = None
+        # 같은 액션 반복 패널티를 위해 이전에 사용한 액션 기록
+        self.used_actions = set()
 
     def reset(self) -> Tuple[Tuple[int, int, int, int], str]:
         """
@@ -57,7 +59,7 @@ class EditingEnv:
         - 상태 (g, r, c, o)와 현재 텍스트 반환
         """
         self.current_step = 0
-        self.last_action = None  # 에피소드 시작할 때 직전 액션 초기화
+        self.used_actions = set()  # 에피소드 시작할 때 사용한 액션 기록 초기화
 
         # 비복원 추출: 리스트가 비었으면 다시 채움
         if not self.available_documents:
@@ -119,7 +121,7 @@ class EditingEnv:
             next_state = self._scores_to_state(prev_scores)
 
             # stop에서는 반복 패널티 적용 X
-            self.last_action = action
+            self.used_actions.add(action)
             return next_state, reward, done, info
 
         # 문서 편집 클래스 호출
@@ -164,11 +166,11 @@ class EditingEnv:
 
         reward = step_reward
 
-        # 같은 액션 반복 패널티
+        # 같은 액션 반복 패널티 (에피소드 내 중복 사용 시 패널티)
         repeat_penalty_applied = False
-        if self.last_action is not None and self.last_action == action:
-            # 같은 액션을 연달아 쓰면 약간 패널티 → 다른 액션 탐색 유도
-            repeat_penalty = 0.3  # 0.1~0.3 사이에서 조정해봐도 좋음
+        if action in self.used_actions:
+            # 이미 사용한 액션을 다시 쓰면 패널티
+            repeat_penalty = self.repeat_penalty
             reward -= repeat_penalty
             repeat_penalty_applied = True
 
@@ -186,8 +188,8 @@ class EditingEnv:
         info["llm_cost_usd"] = usd_cost
         info["llm_total_tokens"] = total_tokens
 
-        # 마지막에 직전 액션 업데이트
-        self.last_action = action
+        # 마지막에 사용한 액션 업데이트
+        self.used_actions.add(action)
 
         next_state = self._scores_to_state(new_scores)
         return next_state, reward, done, info
