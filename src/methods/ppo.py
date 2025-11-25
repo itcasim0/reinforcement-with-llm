@@ -292,7 +292,6 @@ class PPORunner:
         }
 
         torch.save(checkpoint, checkpoint_file)
-        log.info(f"체크포인트 저장: {checkpoint_file}")
 
         # 최신 체크포인트 파일 경로도 저장
         latest_file = self.checkpoint_session_dir / "latest_checkpoint.txt"
@@ -421,8 +420,6 @@ class PPORunner:
         # JSON 파일로 저장
         with open(traj_file, "w", encoding="utf-8") as f:
             json.dump(traj_data, f, ensure_ascii=False, indent=2)
-
-        log.info(f"Trajectory 정보 저장: {traj_file}")
 
     # -----------------------------
     # Train 루프
