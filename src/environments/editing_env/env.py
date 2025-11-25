@@ -15,20 +15,29 @@ class EditingEnv:
         2: make_concise
         3: improve_structure
         4: stop_editing
+
+    Args:
+        documents (List[Document]): 환경에서 사용할 문서 데이터 리스트
+        max_steps (int): 에피소드 당 최대 허용 스텝 수
+        terminal_threshold (float): 종료 판단을 위한 점수 임계값 (기본: 4.0)
+        cost_lambda (float): LLM 비용(USD)에 대한 보상 페널티 가중치 (기본: 1.0)
+        repeat_penalty (float): 동일 액션을 반복해서 수행할 때 부여하는 페널티 (기본: 0.3)
     """
 
     def __init__(
         self,
         documents: List[Document],
         max_steps: 3,
-        terminal_threshold: float = 4.0,
+        # TODO: terminal_threshold 적용될 수 있도록 코드 수정하기
+        terminal_threshold: float = 9.5,
         cost_lambda: float = 1.0,
         repeat_penalty: float = 0.3,  # 같은 액션 반복 사용 시 패널티
+        editor_model: str = "google/gemma-3-27b-it",
     ):
         self.documents = documents
         self.max_steps = max_steps
         self.available_documents = list(self.documents)
-        self.editor = DocumentEditor()
+        self.editor = DocumentEditor(editor_model)
         self.judge = DocumentJudge()
         self.terminal_threshold = terminal_threshold
         self.cost_lambda = cost_lambda

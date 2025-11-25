@@ -56,10 +56,11 @@ class DocumentEditor:
 
     def __init__(
         self,
+        model:str = "google/gemma-3-27b-it",
         base_cost: float = 0.02,
         price_per_1k_tokens: float = 0.00015,
     ):
-        self.model = "google/gemma-3-27b-it"
+        self.model = model
         # 보상에서 사용할 LLM 호출 패널티
         self.base_cost = base_cost
         self.price_per_1k_tokens = price_per_1k_tokens

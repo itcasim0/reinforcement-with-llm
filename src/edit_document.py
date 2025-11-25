@@ -20,8 +20,16 @@ from methods.ppo import PPORunner
 from config.paths import LOGS_DIR
 from utils.logger_factory import log
 
+# 재현을 위한 seed 설정
 SEED = 42
 
+# parameters for environment
+TERMINAL_THRESHOLD = 9.5  # 문서의 종합 품질 점수에 따라 종료할 한계점
+REAPEAT_PANELTY = 0.3  # 반복 액션에 대한 패널티 정도
+EDITOR_MODEL = "google/gemma-3-27b-it"  # 액션에 대한 LLM(or SLM)
+EDITOR_MODEL = "qwen/qwen3-8b"  # 조금 더 성능이 좋지 않은 모델로 실험하기 위함
+
+# parameters for train
 CHECKPOINT_DIR = None  # 학습 재개를 위한 설정 (저장된 체크포인트 디렉토리 경로)
 SAVE_CHECKPOINT_DIR = LOGS_DIR / "checkpoints"
 CHECKPOINT_INTERVAL = 1
@@ -44,8 +52,10 @@ def main():
     env = EditingEnv(
         documents=documents,
         max_steps=3,
-        terminal_threshold=4.5,
+        terminal_threshold=TERMINAL_THRESHOLD,
         cost_lambda=1.0,
+        repeat_penalty=REAPEAT_PANELTY,  # 반복 액션에 대한 패널티 정도
+        editor_model=EDITOR_MODEL,
     )
 
     # 강화학습 정책 구성
