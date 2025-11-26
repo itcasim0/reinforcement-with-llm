@@ -15,8 +15,12 @@ class SingleDocOfflineData:
             jsonl_path: JSONL 파일 경로
         """
 
+        # self.jsonl_path = (
+        #     DATA_DIR / "paper_data" / "first_doc_all_sequences_prefix_reuse.jsonl"
+        # )
+
         self.jsonl_path = (
-            DATA_DIR / "paper_data" / "first_doc_all_sequences_prefix_reuse.jsonl"
+            DATA_DIR / "paper_data" / "first_doc_all_sequences_prefix_reuse_with_noise.jsonl"
         )
 
         self.sequneces, self.action_index = self._load_data()

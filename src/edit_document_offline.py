@@ -32,8 +32,9 @@ EDITOR_MODEL = "qwen/qwen3-8b"  # 조금 더 성능이 좋지 않은 모델로 �
 # parameters for train
 CHECKPOINT_DIR = None  # 학습 재개를 위한 설정 (저장된 체크포인트 디렉토리 경로)
 SAVE_CHECKPOINT_DIR = LOGS_DIR / "checkpoints"
-CHECKPOINT_INTERVAL = 1
-NUM_EPISODES = 10
+CHECKPOINT_INTERVAL = 100
+LOG_INTERVAL = 100
+NUM_EPISODES = 1000
 
 # 재현을 위한 랜덤 시드 고정
 random.seed(SEED)
@@ -87,6 +88,7 @@ def main():
         num_episodes=NUM_EPISODES,
         checkpoint_dir=SAVE_CHECKPOINT_DIR,
         checkpoint_interval=CHECKPOINT_INTERVAL,
+        log_interval=LOG_INTERVAL,
     )
 
     # 평가 시작

@@ -93,6 +93,7 @@ class PPORunner:
         # 체크포인트 관련
         self.start_episode = 0  # 학습 시작 에피소드 번호
         self.checkpoint_session_dir = None  # 현재 학습 세션의 체크포인트 디렉토리
+        self.best_score = -float("inf")  # 최고 점수 기록
 
     # -----------------------------
     # 관측 벡터 생성: (g,r,c,o) + step + last_action
@@ -265,13 +266,14 @@ class PPORunner:
     # -----------------------------
     # 체크포인트 저장/로드
     # -----------------------------
-    def save_checkpoint(self, checkpoint_dir: str, episode: int):
+    def save_checkpoint(self, checkpoint_dir: str, episode: int, is_best: bool = False):
         """
         체크포인트 저장
 
         Args:
             checkpoint_dir: 체크포인트를 저장할 디렉토리
             episode: 현재 에피소드 번호
+            is_best: 현재 체크포인트가 최고 성능인지 여부
         """
         # 세션 디렉토리가 없으면 생성하지 않음 (train 메서드에서 생성)
         if self.checkpoint_session_dir is None:
@@ -289,6 +291,7 @@ class PPORunner:
             "gamma": self.gamma,
             "clip_eps": self.clip_eps,
             "K_epochs": self.K_epochs,
+            "best_score": self.best_score,
         }
 
         torch.save(checkpoint, checkpoint_file)
@@ -298,26 +301,44 @@ class PPORunner:
         with open(latest_file, "w") as f:
             f.write(str(checkpoint_file))
 
-    def load_checkpoint(self, checkpoint_path: str):
+        # 최고 성능 체크포인트 파일 경로 저장
+        if is_best:
+            best_file = self.checkpoint_session_dir / "best_checkpoint.txt"
+            with open(best_file, "w") as f:
+                f.write(str(checkpoint_file))
+            log.info(f"최고 성능 체크포인트 저장: {checkpoint_file} (score={self.best_score:.3f})")
+
+    def load_checkpoint(self, checkpoint_path: str, load_best: bool = False):
         """
         체크포인트 로드
 
         Args:
             checkpoint_path: 체크포인트 파일 경로 또는 디렉토리 경로
-                           디렉토리 경로인 경우 latest_checkpoint.txt를 참조
+            load_best: True이면 best_checkpoint.txt 참조, False이면 latest_checkpoint.txt 참조
 
         Returns:
             로드된 에피소드 번호
         """
         path = Path(checkpoint_path)
 
-        # 디렉토리가 주어진 경우 latest_checkpoint.txt에서 최신 체크포인트 찾기
+        # 디렉토리가 주어진 경우
         if path.is_dir():
-            latest_file = path / "latest_checkpoint.txt"
-            if latest_file.exists():
-                with open(latest_file, "r") as f:
+            if load_best:
+                ptr_file = path / "best_checkpoint.txt"
+                file_type = "best"
+            else:
+                ptr_file = path / "latest_checkpoint.txt"
+                file_type = "latest"
+
+            if ptr_file.exists():
+                with open(ptr_file, "r") as f:
                     checkpoint_file = Path(f.read().strip())
             else:
+                if load_best:
+                    raise FileNotFoundError(
+                        f"Best 체크포인트 참조 파일을 찾을 수 없습니다: {ptr_file}"
+                    )
+                
                 # latest_checkpoint.txt가 없으면 가장 최근 파일 찾기
                 checkpoints = sorted(path.glob("checkpoint_ep*.pt"))
                 if not checkpoints:
@@ -340,12 +361,16 @@ class PPORunner:
         self.policy.load_state_dict(checkpoint["policy_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.start_episode = checkpoint["episode"]
+        
+        # 최고 점수 복원
+        if "best_score" in checkpoint:
+            self.best_score = checkpoint["best_score"]
 
         # 체크포인트 세션 디렉토리 설정 (로드한 체크포인트의 부모 디렉토리)
         self.checkpoint_session_dir = checkpoint_file.parent
         log.info(f"체크포인트 세션 디렉토리 설정: {self.checkpoint_session_dir}")
 
-        log.info(f"에피소드 {self.start_episode}부터 재개합니다.")
+        log.info(f"에피소드 {self.start_episode}부터 재개합니다. (best_score={self.best_score})")
 
         return self.start_episode
 
@@ -429,6 +454,8 @@ class PPORunner:
         num_episodes: int = 10,
         checkpoint_dir: str = None,
         checkpoint_interval: int = 5,
+        log_interval: int = 1,
+        trajectory_save_interval: int = 1,
     ):
         """
         PPO 학습 루프
@@ -437,6 +464,8 @@ class PPORunner:
             num_episodes: 총 학습할 에피소드 수
             checkpoint_dir: 체크포인트를 저장할 디렉토리 (None이면 저장 안 함)
             checkpoint_interval: 체크포인트 저장 주기 (에피소드 단위)
+            log_interval: 로그 출력 주기 (에피소드 단위)
+            trajectory_save_interval: Trajectory 정보 저장 주기 (에피소드 단위)
         """
         # 체크포인트 세션 디렉토리 초기화 (학습 시작 시 한 번만)
         if checkpoint_dir and self.checkpoint_session_dir is None:
@@ -451,19 +480,30 @@ class PPORunner:
             ep_return = sum(traj["rewards"])
             reward_history.append(ep_return)
 
-            log.info(
-                f"[Episode {ep}] return = {ep_return:.3f}, len = {len(traj['rewards'])}"
-            )
+            if ep % log_interval == 0:
+                log.info(
+                    f"[Episode {ep}] return = {ep_return:.3f}, len = {len(traj['rewards'])}"
+                )
+
+            # 최고 점수 갱신 및 저장
+            is_best = False
+            if ep_return > self.best_score:
+                self.best_score = ep_return
+                is_best = True
+                if checkpoint_dir:
+                    self.save_checkpoint(checkpoint_dir, ep, is_best=True)
 
             self.ppo_update(traj)
 
-            # trajectory 정보 저장 (매 에피소드마다)
-            if checkpoint_dir:
+            # trajectory 정보 저장
+            if checkpoint_dir and ep % trajectory_save_interval == 0:
                 self.save_trajectory_info(checkpoint_dir, ep, traj)
 
-            # 체크포인트 저장
+            # 체크포인트 저장 (주기적)
             if checkpoint_dir and ep % checkpoint_interval == 0:
-                self.save_checkpoint(checkpoint_dir, ep)
+                # 이미 best로 저장했으면 중복 저장 방지 (선택사항이지만 파일IO 줄이기 위해)
+                if not is_best:
+                    self.save_checkpoint(checkpoint_dir, ep)
 
         # 학습 종료 시 최종 체크포인트 저장
         if checkpoint_dir:

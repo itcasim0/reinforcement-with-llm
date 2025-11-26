@@ -4,6 +4,7 @@ import json
 
 # internal
 from llm.core import client
+from environments.editing_env.eval.evaluator import AbstractQualityEvaluator
 
 
 @dataclass
@@ -230,119 +231,17 @@ class DocumentEditor:
 
 
 class DocumentJudge:
-    """
-    입력된 문서의 품질을 평가하는 클래스
-
-    NOTE: 품질의 평가는 일관적이고 정확하게 하기 위해 성능이 좋은 LLM을 활용하도록 함
-
-    TODO: 진산이의 아이디어를 기대합니다.
-    """
+    """입력된 문서의 품질을 평가하는 클래스"""
 
     def __init__(self):
-        self.model = "openai/gpt-4o"
-        # ============================================================
-        # 아이디어 낸 평가 방법 (주석 처리 필요시 활성화)
-        # ============================================================
-        from environments.editing_env.eval.evaluator import AbstractQualityEvaluator
 
         self.abstract_evaluator = AbstractQualityEvaluator(language="ko")
-
-    def _system_prompt(self):
-        return """당신은 글의 품질을 평가하는 심사위원입니다.
-문법, 가독성, 논리적 일관성을 0~10 점수로 평가합니다.
-반드시 JSON 형식만 출력하세요."""
-
-    def _user_prompt(self, document: Document):
-        return f"""다음 글의 품질을 0~10 점수로 평가해줘.
-
-각 항목:
-- grammar: 문법 및 맞춤법 정확성
-- readability: 읽기 쉬운 정도
-- coherence: 논리적 연결성과 흐름
-
-반드시 아래 JSON 형식 그대로만 출력해.
-설명 문장은 쓰지 말고, JSON만 출력해.
-
-예시:
-{{
-"grammar": 7.0,
-"readability": 6.5,
-"coherence": 7.0,
-}}
-
-평가할 글:
-{document}
-"""
-
-    def score(self, document: Document) -> DocumentScore:
-        """
-        문서 품질을 0~10점으로 평가하게 하고, 최종 dict으로 변환하여 출력
-
-        NOTE: LLM에게 문서 품질을 0~10점으로 평가하게 하고, JSON 파싱 후 dict로 반환.
-        """
-        try:
-            # LLM 호출하여 품질 평가
-            response = client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": self._system_prompt(),
-                    },
-                    {"role": "user", "content": self._user_prompt(document=document)},
-                ],
-            )
-
-            # LLM 호출 결과 출력
-            raw = response.choices[0].message.content.strip()
-
-            # 문자열에서 json 파싱
-            start = raw.find("{")
-            end = raw.rfind("}")
-            if start != -1 and end != -1:
-                json_str = raw[start : end + 1]
-            else:
-                json_str = raw
-
-            data: dict = json.loads(json_str)
-
-            def safe(k, v: float) -> float:
-                try:
-                    x = float(v)
-                except Exception as e:
-                    print(f"[WARN] Judge {k}, {v} 파싱 실패, 기본값 사용:", e)
-                    x = 5.0  # 10점 만점 기준, 중간값
-
-                # 0~10으로 클램핑
-                return max(0.0, min(10.0, x))
-
-            # 전체적인 품질을 출력된 결과값을 활용하여 최종 산정
-
-            parsing_score = dict(
-                grammar=safe("grammar", data.get("grammar")),
-                readability=safe("readability", data.get("readability")),
-                coherence=safe("coherence", data.get("coherence")),
-            )
-
-            overall = round(
-                sum([v for v in parsing_score.values()]) / len(parsing_score), 1
-            )
-            parsing_score["overall"] = overall
-            scores = DocumentScore(**parsing_score)
-
-        except Exception as e:
-            print("[WARN] Judge JSON 파싱 실패, 기본값 사용:", e)
-            scores = DocumentScore(
-                grammar=5.0, readability=5.0, coherence=5.0, overall=5.0
-            )
-
-        return scores
 
     # ================================================================
     # 아이디어 낸 평가 방법 (주석 처리 필요시 활성화)
     # ================================================================
 
-    def score_abstract(self, document) -> DocumentScore:
+    def score(self, document) -> DocumentScore:
         """
         Abstract 전용 평가 (500개 논문 분석 기반)
 
@@ -383,67 +282,3 @@ class DocumentJudge:
             coherence=round(coherence, 1),
             overall=round(overall, 1),
         )
-
-    # NOTE : 기존에 사용하던 param들을 최대한 따라가서 함수 바꿔서 사용할 시에 문제 안생기게 하기 위함.
-
-    # def get_abstract_detailed_scores(self, document) -> dict:
-    #     """
-    #     Abstract의 상세 점수를 모두 반환
-    #
-    #     6개 세부 항목 + 등급을 모두 확인하고 싶을 때 사용
-    #
-    #     Returns:
-    #         dict: {
-    #             'structure': 7.5,      # DocumentScore.grammar에 해당
-    #             'length': 8.0,         # 추가 정보
-    #             'academic': 6.5,       # 추가 정보
-    #             'density': 7.2,        # 추가 정보
-    #             'clarity': 7.0,        # DocumentScore.readability에 해당
-    #             'coherence': 7.8,      # DocumentScore.coherence에 해당
-    #             'overall': 7.5,        # DocumentScore.overall에 해당
-    #             'grade': 'B (Good)'
-    #         }
-    #     """
-    #     if isinstance(document, str):
-    #         text = document
-    #     elif isinstance(document, Document):
-    #         text = document.text
-    #     elif hasattr(document, 'text'):
-    #         text = document.text
-    #     else:
-    #         raise ValueError(f"Unsupported type: {type(document)}")
-    #
-    #     result = self.abstract_evaluator.evaluate_abstract(text)
-    #
-    #     return {
-    #         'structure': round(result['structure']['structure_completeness'] * 10, 1),
-    #         'length': round(result['length']['overall_length_score'] * 10, 1),
-    #         'academic': round(result['academic_style']['academic_style_score'] * 10, 1),
-    #         'density': round(result['information_density']['information_density_score'] * 10, 1),
-    #         'clarity': round(result['clarity']['clarity_score'] * 10, 1),
-    #         'coherence': round(result['coherence']['coherence_score'] * 10, 1),
-    #         'overall': round(result['overall_score'] * 10, 1),
-    #         'grade': result['grade']
-    #     }
-    # NOTE : 기존에 사용하던 param들을 최대한 따라가서 함수 바꿔서 사용할 시에 문제 안생기게 하기 위함. (detail 값)
-
-    # def get_abstract_detailed_scores(self, text: str) -> dict:
-    #     """
-    #     Abstract의 상세 점수를 dict로 반환
-    #
-    #     6개 세부 항목의 원본 점수를 모두 확인하고 싶을 때 사용
-    #
-    #     Returns:
-    #         dict: AbstractQualityEvaluator의 원본 결과
-    #         {
-    #             'overall_score': 0.73,
-    #             'grade': 'B (Good)',
-    #             'structure': {...},
-    #             'length': {...},
-    #             'academic_style': {...},
-    #             'information_density': {...},
-    #             'clarity': {...},
-    #             'coherence': {...}
-    #         }
-    #     """
-    #     return self.abstract_evaluator.evaluate_abstract(text)
