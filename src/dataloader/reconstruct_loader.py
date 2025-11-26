@@ -90,6 +90,39 @@ class ReconstructDataLoader:
 
         return reconstructed_texts
 
+class NoiseDataLoader:
+    def __init__(self):
+        """
+        맞춤법 및 띄어쓰기 오류 데이터
+        """
+
+        # 국내 논문 초록 데이터 파일은 현재 하나이니까 명시적으로 선언
+        self.data_path = (
+            DATA_DIR
+            / "paper_data"
+            / "noise"
+            / "paper_abstract_with_noise_20251125_002418.json"
+        )
+    
+    def get_noise_text(self, max_docs=float("inf")) -> List[Document]:
+
+        noise_texts = []
+
+        try:
+            data = load_json(self.data_path)
+
+            results: List[dict] = data.get("results", [])
+            for result in results:
+                abstract_text = result.get("abstract_noise", "")
+                if abstract_text:
+                    noise_texts.append(Document(text=abstract_text))
+                    if len(noise_texts) > max_docs:
+                        break
+
+        except Exception as e:
+            print(f"[WARN] Error reading {self.data_path}: {e}")
+
+        return noise_texts
 
 if __name__ == "__main__":
     # Example usage
