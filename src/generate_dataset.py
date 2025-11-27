@@ -16,7 +16,7 @@ from typing import Dict, List, Tuple, Any
 
 from config.paths import DATA_DIR
 from dataloader.reconstruct_loader import DomesticReconstructDataLoader
-from environments.editing_env.components import DocumentEditor, Document
+from environments.editing_env.components.component import DocumentEditor, Document
 
 # 사용할 액션 4개 (순서 그대로 product에 사용)
 ACTIONS = [
