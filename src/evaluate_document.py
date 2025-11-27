@@ -4,17 +4,17 @@ from dataclasses import asdict
 # internal
 from environments.editing_env.env import StrictEvaluator
 
-# from environments.editing_env.eval.evaluator import AbstractQualityEvaluator
+from environments.editing_env.eval.evaluator import AbstractQualityEvaluator
 from environments.editing_env.components.data import SingleDocOfflineData
 
 from utils.logger_factory import log
 
 
-# def _evaluate_base(text):
-#     """기본 평가기 - dict 반환"""
-#     evaluator = AbstractQualityEvaluator("ko")
-#     score = evaluator.evaluate_abstract(text)
-#     return score
+def _evaluate_base(text):
+    """기본 평가기 - dict 반환"""
+    evaluator = AbstractQualityEvaluator("ko")
+    score = evaluator.evaluate_abstract(text)
+    return score
 
 
 def _evaluate_strict(text):
@@ -33,7 +33,7 @@ def _format_score_output(score_dict, indent=2):
 
 def main():
 
-    SEQUENCE_IDX = 78
+    SEQUENCE_IDX = 70
 
     data = SingleDocOfflineData()
     sequences = data.sequences
@@ -44,17 +44,16 @@ def main():
     log.info(f"최종 텍스트:\n{final_text}")
 
     # 기본 평가기
-    # 기존의 평가기 자체는 출력 결과는 되게.. 난해하여 주석처리..
-    # log.info("\n[기본 평가기 - AbstractQualityEvaluator]")
-    # log.info("-" * 80)
+    log.info("\n[기본 평가기 - AbstractQualityEvaluator]")
+    log.info("-" * 80)
 
-    # before_base_score = _evaluate_base(base_text)
-    # log.info("교정 전:")
-    # log.info(_format_score_output(before_base_score))
+    before_base_score = _evaluate_base(base_text)
+    log.info("교정 전:")
+    log.info("\n" + _format_score_output(before_base_score))
 
-    # after_base_score = _evaluate_base(final_text)
-    # log.info("\n교정 후:")
-    # log.info(_format_score_output(after_base_score))
+    after_base_score = _evaluate_base(final_text)
+    log.info("교정 후:")
+    log.info("\n" + _format_score_output(after_base_score))
 
     # 엄격 평가기
     log.info("[엄격 평가기 - StrictEvaluator]")

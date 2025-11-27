@@ -105,14 +105,10 @@ class KoreanEvaluationConfig:
             "과제",
             "기존",
             "현재",
-            "기존의",
-            "현재의",
         ],
         "objective": [
             "목적",
             "목표",
-            "목적은",
-            "목표는",
             "연구",
             "조사",
             "탐구",
@@ -235,4 +231,6 @@ def get_evaluation_config(language: str):
     elif language == "ko":
         return KoreanEvaluationConfig
     else:
-        raise ValueError(f"지원하지 않는 언어: {language}. 'en' 또는 'ko'를 사용하세요.")
+        raise ValueError(
+            f"지원하지 않는 언어: {language}. 'en' 또는 'ko'를 사용하세요."
+        )

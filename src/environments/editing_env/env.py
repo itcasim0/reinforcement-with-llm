@@ -1,6 +1,5 @@
 from typing import List, Dict, Tuple
 import random
-import re
 
 from typing import override
 

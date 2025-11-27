@@ -128,7 +128,7 @@ class AbstractQualityEvaluator:
 
         for section, keywords in self.structure_keywords.items():
             keyword_count = sum(1 for kw in keywords if kw in abstract_lower)
-            scores[section] = min(1.0, keyword_count / len(keywords))
+            scores[section] = min(1.0, keyword_count)
 
         structure_completeness = np.mean(list(scores.values()))
 
@@ -197,21 +197,21 @@ class AbstractQualityEvaluator:
         connective_count = sum(
             1 for conn in self.academic_connectives if conn in abstract_lower
         )
-        connective_score = min(1.0, connective_count / 3)
+        connective_score = min(1.0, connective_count)
 
         # 1인칭 사용
         first_person_count = sum(abstract_lower.count(fp) for fp in self.first_person)
 
         # 한국어는 1인칭 사용이 더 자연스러울 수 있음
         if self.language == "ko":
-            # 한국어는 1인칭을 덜 패널티
-            first_person_penalty = max(0, 1.0 - first_person_count * 0.1)
+            # 한국어는 1인칭을 가점
+            first_person_penalty = max(0, first_person_count)
         else:
             first_person_penalty = max(0, 1.0 - first_person_count * 0.2)
 
         # 수동태/피동
         passive_count = sum(abstract_lower.count(pi) for pi in self.passive_indicators)
-        passive_score = min(1.0, passive_count / 5)
+        passive_score = min(1.0, passive_count)
 
         academic_score = (connective_score + first_person_penalty + passive_score) / 3
 
