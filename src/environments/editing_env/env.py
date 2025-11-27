@@ -147,7 +147,7 @@ class EditingEnv:
         usd_cost = cost_info.get("usd_cost", self.editor.base_cost)
         total_tokens = cost_info.get("total_tokens", None)
 
-        # 2) LLM 호출 후 점수 업데이트
+        # 2) 문서 평가 호출 후 점수 업데이트
         new_scores = self.judge.score(self.current_text)
         self.current_score = new_scores
         new_overall = new_scores.overall

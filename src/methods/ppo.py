@@ -306,7 +306,6 @@ class PPORunner:
             best_file = self.checkpoint_session_dir / "best_checkpoint.txt"
             with open(best_file, "w") as f:
                 f.write(str(checkpoint_file))
-            log.info(f"최고 성능 체크포인트 저장: {checkpoint_file} (score={self.best_score:.3f})")
 
     def load_checkpoint(self, checkpoint_path: str, load_best: bool = False):
         """
