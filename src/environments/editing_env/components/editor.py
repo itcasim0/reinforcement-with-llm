@@ -205,3 +205,5 @@ class OfflineSingleDocEditor:
             cost_info = {"usd_cost": self.base_cost, "total_tokens": self.base_token}
 
         return edited_text, cost_info
+
+

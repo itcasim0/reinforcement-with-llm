@@ -702,7 +702,7 @@ class PPORunner:
         
         log.info(f"\nStep 1 액션 확률 (Value: {value.item():.3f}):")
         for action, prob in zip(self.env.actions, probs):
-            bar = "█" * int(prob * 25)
+            bar = "*" * int(prob * 25)
             log.info(f"  {action:20s}: {prob:.3f} {bar}")
 
 

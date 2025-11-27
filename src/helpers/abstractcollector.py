@@ -467,11 +467,11 @@ class LargeScaleAnalyzer:
         print("📊 길이 분포")
         print("="*80)
         dist = analysis['length_distribution']
-        print(f"  매우 짧음 (<100):     {dist['very_short']*100:5.1f}%  {'█' * int(dist['very_short']*50)}")
-        print(f"  짧음 (100-150):       {dist['short']*100:5.1f}%  {'█' * int(dist['short']*50)}")
-        print(f"  중간 (150-200):       {dist['medium']*100:5.1f}%  {'█' * int(dist['medium']*50)}")
-        print(f"  김 (200-250):         {dist['long']*100:5.1f}%  {'█' * int(dist['long']*50)}")
-        print(f"  매우 김 (250+):       {dist['very_long']*100:5.1f}%  {'█' * int(dist['very_long']*50)}")
+        print(f"  매우 짧음 (<100):     {dist['very_short']*100:5.1f}%  {'*' * int(dist['very_short']*50)}")
+        print(f"  짧음 (100-150):       {dist['short']*100:5.1f}%  {'*' * int(dist['short']*50)}")
+        print(f"  중간 (150-200):       {dist['medium']*100:5.1f}%  {'*' * int(dist['medium']*50)}")
+        print(f"  김 (200-250):         {dist['long']*100:5.1f}%  {'*' * int(dist['long']*50)}")
+        print(f"  매우 김 (250+):       {dist['very_long']*100:5.1f}%  {'*' * int(dist['very_long']*50)}")
         
         print("\n" + "="*80)
         print("🏗️  구조 패턴 (500개 분석)")
