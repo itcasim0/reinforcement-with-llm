@@ -1,96 +1,7 @@
 """
 논문 초록 품질 평가를 위한 키워드 및 상수 설정
-영어(en)와 한국어(ko) 평가 기준을 정의
+한국어(ko) 평가 기준을 정의
 """
-
-
-class EnglishEvaluationConfig:
-    """영어 논문 초록 평가 설정"""
-
-    # 구조 키워드
-    STRUCTURE_KEYWORDS = {
-        "background": [
-            "background",
-            "context",
-            "motivation",
-            "problem",
-            "challenge",
-        ],
-        "objective": [
-            "aim",
-            "goal",
-            "objective",
-            "purpose",
-            "investigate",
-            "study",
-            "explore",
-        ],
-        "method": [
-            "method",
-            "approach",
-            "technique",
-            "algorithm",
-            "framework",
-            "model",
-            "propose",
-        ],
-        "result": [
-            "result",
-            "finding",
-            "demonstrate",
-            "show",
-            "achieve",
-            "performance",
-        ],
-        "conclusion": [
-            "conclude",
-            "implication",
-            "suggest",
-            "contribution",
-            "significant",
-        ],
-    }
-
-    # 학술적 연결어
-    ACADEMIC_CONNECTIVES = [
-        "however",
-        "moreover",
-        "furthermore",
-        "therefore",
-        "thus",
-        "consequently",
-        "nevertheless",
-        "additionally",
-        "specifically",
-    ]
-
-    # 1인칭 표현
-    FIRST_PERSON = ["i ", "we ", "our ", "my ", "me "]
-
-    # 수동태 표현
-    PASSIVE_INDICATORS = ["is ", "are ", "was ", "were ", "been ", "being "]
-
-    # 불필요한 수식어
-    FILLER_WORDS = ["very", "really", "quite", "somewhat", "rather"]
-
-    # 모호한 표현
-    VAGUE_TERMS = [
-        "various",
-        "several",
-        "many",
-        "some",
-        "few",
-        "often",
-        "sometimes",
-    ]
-
-    # 길이 기준 (단어 수)
-    OPTIMAL_WORD_COUNT_MIN = 150
-    OPTIMAL_WORD_COUNT_MAX = 300
-    OPTIMAL_WORDS_PER_SENTENCE_MIN = 15
-    OPTIMAL_WORDS_PER_SENTENCE_MAX = 25
-    TARGET_WORDS_PER_SENTENCE = 20
-
 
 class KoreanEvaluationConfig:
     """한국어 논문 초록 평가 설정"""
@@ -171,6 +82,44 @@ class KoreanEvaluationConfig:
         "이를 통해",
     ]
 
+    # 학술적 표현
+    ACADEMIC_POSITIVE = [
+        "본 연구",
+        "본 논문",
+        "분석하였다",
+        "검증하였다",
+        "확인하였다",
+        "제안한다",
+        "제시한다",
+        "따라서",
+        "그러나",
+        "한편",
+        "결과적으로",
+        "구체적으로",
+    ]
+
+    # 구어체/비학술적 표현
+    COLLOQUIAL = [
+        "뭐랄까",
+        "글쎄",
+        "아무튼",
+        "그러니까",
+        "어쩌면",
+        "사실",
+        "솔직히",
+        "당연히",
+        "물론",
+        "엄청",
+        "굉장히",
+        "되게",
+        "진짜",
+        "정말로",
+        "완전",
+        "이런저런",
+        "요즘",
+        "얼마 전",
+    ]
+
     # 1인칭 표현
     FIRST_PERSON = ["우리는", "본 연구", "저자는", "필자는", "본 논문"]
 
@@ -191,6 +140,22 @@ class KoreanEvaluationConfig:
     # 불필요한 수식어
     FILLER_WORDS = ["매우", "아주", "상당히", "조금", "약간", "다소", "꽤"]
 
+    # 불필요한 수식어 2
+    FILLERS = [
+        "매우 ",
+        "아주 ",
+        "상당히 ",
+        "다소 ",
+        "꽤 ",
+        "어느 정도",
+        "기본적으로",
+        "일반적으로 말해서",
+        "말하자면",
+        "이를테면",
+        "다양한 ",
+        "여러 가지 ",
+    ]
+
     # 모호한 표현
     VAGUE_TERMS = [
         "여러",
@@ -203,6 +168,43 @@ class KoreanEvaluationConfig:
         "많은",
     ]
 
+    # 모호한 표현 2
+    VAGUE_PATTERNS = [
+        "일지도 모르는",
+        "일지도 모를",
+        "있을지도 모르는",
+        "아닐까",
+        "않을까",
+        "일 것이다",
+        "좀 ",
+        "약간 ",
+        "조금 ",
+        "가상의",
+        "어떤 ",
+        "그런 ",
+        "같은 것",
+        "라는 것",
+        "라고 하는",
+        "등등",
+        "기타 등등",
+    ]
+
+    # 어색한 어미
+    AWKWARD_ENDINGS = [
+        "해보아 했다",
+        "해보아야 했다",
+        "인 것이다",
+        "인 것이었다",
+        "라고 한다",
+        "다고 한다",
+        "했던 것이다",
+        "였던 것이다",
+        "하는 바이다",
+        "되는 바이다",
+        "것이라고",
+        "것이었다고",
+    ]
+
     # 길이 기준 (어절 수)
     # 한국어 300어절 ≈ 영어 200단어
     OPTIMAL_WORD_COUNT_MIN = 200
@@ -210,27 +212,3 @@ class KoreanEvaluationConfig:
     OPTIMAL_WORDS_PER_SENTENCE_MIN = 20
     OPTIMAL_WORDS_PER_SENTENCE_MAX = 40
     TARGET_WORDS_PER_SENTENCE = 30
-
-
-def get_evaluation_config(language: str):
-    """언어에 맞는 평가 설정 반환
-
-    Args:
-        language: 'en' (영어) 또는 'ko' (한국어)
-
-    Returns:
-        EnglishEvaluationConfig 또는 KoreanEvaluationConfig 클래스
-
-    Raises:
-        ValueError: 지원하지 않는 언어인 경우
-    """
-    language = language.lower()
-
-    if language == "en":
-        return EnglishEvaluationConfig
-    elif language == "ko":
-        return KoreanEvaluationConfig
-    else:
-        raise ValueError(
-            f"지원하지 않는 언어: {language}. 'en' 또는 'ko'를 사용하세요."
-        )

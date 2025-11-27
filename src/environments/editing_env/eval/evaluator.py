@@ -47,7 +47,7 @@ from collections import Counter
 # internal
 from utils.logger_factory import log
 
-from .evaluation_config import get_evaluation_config
+from .evaluation_config import KoreanEvaluationConfig
 
 
 class AbstractQualityEvaluator:
@@ -83,7 +83,7 @@ class AbstractQualityEvaluator:
 
     def _init_english_keywords(self):
         """영어 키워드 초기화"""
-        config = get_evaluation_config("en")
+        config = KoreanEvaluationConfig
 
         self.structure_keywords = config.STRUCTURE_KEYWORDS
         self.academic_connectives = config.ACADEMIC_CONNECTIVES
@@ -101,7 +101,7 @@ class AbstractQualityEvaluator:
 
     def _init_korean_keywords(self):
         """한국어 키워드 초기화"""
-        config = get_evaluation_config("ko")
+        config = KoreanEvaluationConfig
 
         self.structure_keywords = config.STRUCTURE_KEYWORDS
         self.academic_connectives = config.ACADEMIC_CONNECTIVES
@@ -226,6 +226,8 @@ class AbstractQualityEvaluator:
 
     def evaluate_information_density(self, abstract: str) -> Dict[str, float]:
         """정보 밀도 평가"""
+
+        # TODO: 시간되면, tokenizer 써가지고 토큰이나 형태소단위로 분리해보는 것도 나쁘지 않을 듯
         words = abstract.split()
         word_count = len(words)
 
@@ -237,16 +239,6 @@ class AbstractQualityEvaluator:
         has_numbers = len(numbers) > 0
         number_score = 1.0 if has_numbers else 0.5
 
-        # 전문 용어 (영어는 대문자, 한국어는 한자어/외래어)
-        if self.language == "en":
-            technical_terms = re.findall(r"\b[A-Z][a-z]+(?:-[A-Za-z]+)*\b", abstract)
-        else:
-            # 한국어: 괄호 안 영어, 대문자로 시작하는 영어 단어
-            technical_terms = re.findall(r"\([A-Za-z\s]+\)|[A-Z][a-z]+", abstract)
-
-        technical_density = len(technical_terms) / word_count
-        technical_score = min(1.0, technical_density * 10)
-
         # 불필요한 수식어
         filler_count = 0
         for fw in self.filler_words:
@@ -255,16 +247,13 @@ class AbstractQualityEvaluator:
             else:
                 filler_count += abstract.count(fw)
 
-        filler_penalty = max(0, 1.0 - filler_count * 0.3)
+        filler_penalty = max(0, 1.0 - filler_count * 0.1)
 
-        density_score = (number_score + technical_score + filler_penalty) / 3
+        density_score = (number_score + filler_penalty) / 2
 
         return {
-            "has_numbers": has_numbers,
             "number_count": len(numbers),
             "number_score": number_score,
-            "technical_term_count": len(technical_terms),
-            "technical_score": technical_score,
             "filler_count": filler_count,
             "filler_penalty": filler_penalty,
             "information_density_score": density_score,
@@ -285,53 +274,11 @@ class AbstractQualityEvaluator:
             else:
                 vague_count += abstract_lower.count(vt)
 
-        vague_penalty = max(0, 1.0 - vague_count * 0.15)
-
-        # 약어 설명
-        abbreviations_with_explanation = re.findall(
-            r"\b([A-Z]{2,})\s*\([^)]+\)", abstract
-        )
-        abbreviations_without = re.findall(r"\b[A-Z]{2,}\b", abstract)
-
-        if len(abbreviations_without) > 0:
-            abbrev_explanation_score = len(abbreviations_with_explanation) / len(
-                set(abbreviations_without)
-            )
-        else:
-            abbrev_explanation_score = 1.0
-
-        clarity_score = (vague_penalty + abbrev_explanation_score) / 2
-
-        return {
-            "vague_count": vague_count,
-            "vague_penalty": vague_penalty,
-            "abbreviations_explained": len(abbreviations_with_explanation),
-            "abbreviations_total": len(set(abbreviations_without)),
-            "abbrev_explanation_score": abbrev_explanation_score,
-            "clarity_score": clarity_score,
-        }
-
-    def evaluate_coherence(self, abstract: str) -> Dict[str, float]:
-        """일관성 평가"""
-        sentences = [s.strip() for s in re.split(r"[.!?]+", abstract) if s.strip()]
-
-        if len(sentences) < 2:
-            return {"coherence_score": 0.5}
-
-        # 연결어 사용
-        transition_count = 0
-        for sent in sentences[1:]:
-            if self.language == "en":
-                sent_lower = sent.lower()
-            else:
-                sent_lower = sent
-
-            if any(conn in sent_lower for conn in self.academic_connectives):
-                transition_count += 1
-
-        transition_score = min(1.0, transition_count / (len(sentences) - 1))
+        vague_penalty = max(0, 1.0 - vague_count * 0.1)
 
         # 반복 개념
+        sentences = [s.strip() for s in re.split(r"[.!?]+", abstract) if s.strip()]
+
         all_words = []
         for sent in sentences:
             if self.language == "en":
@@ -345,14 +292,14 @@ class AbstractQualityEvaluator:
         repeated_concepts = [w for w, c in word_freq.items() if c >= 2]
         concept_consistency = min(1.0, len(repeated_concepts) / 5)
 
-        coherence_score = (transition_score + concept_consistency) / 2
+        clarity_score = (vague_penalty + concept_consistency) / 2
 
         return {
-            "transition_count": transition_count,
-            "transition_score": transition_score,
+            "vague_count": vague_count,
+            "vague_penalty": vague_penalty,
             "repeated_concepts": len(repeated_concepts),
             "concept_consistency": concept_consistency,
-            "coherence_score": coherence_score,
+            "clarity_score": clarity_score,
         }
 
     def evaluate_abstract(self, abstract: str) -> Dict:
@@ -362,15 +309,13 @@ class AbstractQualityEvaluator:
         academic = self.evaluate_academic_style(abstract)
         density = self.evaluate_information_density(abstract)
         clarity = self.evaluate_clarity(abstract)
-        coherence = self.evaluate_coherence(abstract)
 
         weights = {
             "structure": 0.25,
-            "length": 0.10,
+            "length": 0.15,
             "academic": 0.15,
             "density": 0.20,
-            "clarity": 0.15,
-            "coherence": 0.15,
+            "clarity": 0.20,
         }
 
         overall_score = (
@@ -379,7 +324,6 @@ class AbstractQualityEvaluator:
             + academic["academic_style_score"] * weights["academic"]
             + density["information_density_score"] * weights["density"]
             + clarity["clarity_score"] * weights["clarity"]
-            + coherence["coherence_score"] * weights["coherence"]
         )
 
         return {
@@ -389,7 +333,6 @@ class AbstractQualityEvaluator:
             "academic_style": academic,
             "information_density": density,
             "clarity": clarity,
-            "coherence": coherence,
             "grade": self._score_to_grade(overall_score),
             "language": self.language,
         }
