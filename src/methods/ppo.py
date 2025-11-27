@@ -519,11 +519,11 @@ class PPORunner:
         - 각 step에서 argmax(logits)로 행동 선택
         """
         state, text = self.env.reset()
-        print("\n[Eval] 초기 문서:")
-        print("-" * 60)
-        print(text)
-        print("-" * 60)
-        print("초기 점수:", self.env.current_score)
+        log.info("\n[Eval] 초기 문서:")
+        log.info("-" * 60)
+        log.info(text)
+        log.info("-" * 60)
+        log.info(f"초기 점수: {self.env.current_score}")
 
         actions_taken = []
         last_action_idx = -1
@@ -547,21 +547,44 @@ class PPORunner:
             before_text = self.env.current_text
             next_state, reward, done, info = self.env.step(action_idx)
 
-            print(f"\n[Step {t+1}] action = {action_name}, reward = {reward:.3f}")
-            print("  prev scores:", info.get("prev_scores"))
-            print("  new  scores:", info.get("new_scores"))
-            print("[before]")
-            print(before_text)
-            print("[after]")
-            print(self.env.current_text)
+            log.info(f"\n[Step {t+1}] action = {action_name}, reward = {reward:.3f}")
+            log.info("  prev scores:", info.get("prev_scores"))
+            log.info("  new  scores:", info.get("new_scores"))
+            log.info("[before]")
+            log.info(before_text)
+            log.info("[after]")
+            log.info(self.env.current_text)
 
             last_action_idx = action_idx
             state = next_state
             if done:
-                print(
+                log.info(
                     f"\n[Eval] 종료 (reason={info.get('reason', 'unknown')}, step={t+1})"
                 )
                 break
 
-        print("\n[Eval] 최종 점수:", self.env.current_score)
-        print("선택된 액션 인덱스 시퀀스:", actions_taken)
+        log.info(f"\n[Eval] 최종 점수: {self.env.current_score}")
+        log.info("선택된 액션 인덱스 시퀀스:", actions_taken)
+    
+    # -----------------------------
+    # 정책 시각화
+    # -----------------------------
+    def show_policy(self):
+        """학습된 정책의 액션 확률 분포 확인"""
+        state, _ = self.env.reset()
+        
+        log.info(f"\n현재 문서 점수:")
+        log.info(f"  grammar:     {state[0]:.2f}")
+        log.info(f"  readability: {state[1]:.2f}")
+        log.info(f"  coherence:   {state[2]:.2f}")
+        log.info(f"  overall:     {state[3]:.2f}")
+        
+        obs = self._build_obs(state, 0, -1)
+        with torch.no_grad():
+            logits, value = self.policy(obs.unsqueeze(0))
+            probs = torch.softmax(logits, dim=-1).squeeze().cpu().numpy()
+        
+        log.info(f"\nStep 1 액션 확률 (Value: {value.item():.3f}):")
+        for action, prob in zip(self.env.actions, probs):
+            bar = "█" * int(prob * 25)
+            log.info(f"  {action:20s}: {prob:.3f} {bar}")

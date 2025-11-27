@@ -3,6 +3,7 @@ edit_document_offline.py에는 사전에 미리 LLM을 통해 도출된 결과�
 """
 
 import sys
+import os
 from pathlib import Path
 
 # src 디렉토리를 sys.path에 추가
@@ -13,7 +14,6 @@ import random
 import torch
 
 # internal
-from dataloader.reconstruct_loader import ReconstructDataLoader
 from environments.editing_env.env import OfflineEditingEnv
 from methods.ppo import PPORunner
 
@@ -25,45 +25,104 @@ SEED = 42
 
 # parameters for environment
 TERMINAL_THRESHOLD = 9.5  # 문서의 종합 품질 점수에 따라 종료할 한계점
-REAPEAT_PANELTY = 0.3  # 반복 액션에 대한 패널티 정도
+REPEAT_PENALTY = 0.2  # 반복 액션에 대한 패널티 정도
 # EDITOR_MODEL = "google/gemma-3-27b-it"  # 액션에 대한 LLM(or SLM)
 EDITOR_MODEL = "qwen/qwen3-8b"  # 조금 더 성능이 좋지 않은 모델로 실험하기 위함
+
+# parameters for offline environment (offline_ppo.py와 env.py의 OfflineEditingEnv에 맞춤)
+# offline_ppo.py와 동일하게 스크립트 디렉토리 기준 경로 사용
+script_dir = os.path.dirname(os.path.abspath(__file__))
+JSONL_PATH = os.path.join(script_dir, "first_doc_all_sequences_prefix_reuse_with_noise.jsonl")
+USE_SINGLE_SEQUENCE = True  # 오버피팅 모드 (첫 번째 시퀀스만 사용)
+USE_LLM_JUDGE = False  # False면 rule-based evaluator 사용
+USE_OFFLINE_REWARD = True  # offline_ppo.py 스타일 보상 함수 사용
 
 # parameters for train
 CHECKPOINT_DIR = None  # 학습 재개를 위한 설정 (저장된 체크포인트 디렉토리 경로)
 SAVE_CHECKPOINT_DIR = LOGS_DIR / "checkpoints"
 CHECKPOINT_INTERVAL = 1
-LOG_INTERVAL = 1
+LOG_INTERVAL = 100
 TRAJECTORY_SAVE_INTERVAL=1
 
-NUM_EPISODES = 10
+NUM_EPISODES = 1000
 
 # 재현을 위한 랜덤 시드 고정
 random.seed(SEED)
 torch.manual_seed(SEED)
 
 
+
+
 def main():
-
-    # load data
-    log.info("데이터 로드")
-    dataloader = ReconstructDataLoader()
-    documents = dataloader.get_reconstructed_text(max_docs=5)
-
-    # 강화학습 환경 구성
-    # TODO: 현재는 데이터가 하나로 고정되어있어서 documents를 사실상 안받아도 됨
-    log.info("강화학습 환경 구성")
+    # 데이터 파일 경로
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    jsonl_path = os.path.join(script_dir, "first_doc_all_sequences_prefix_reuse_with_noise.jsonl")
+    
+    if not os.path.exists(jsonl_path):
+        log.info(f"[ERROR] 데이터 파일을 찾을 수 없습니다: {jsonl_path}")
+        exit(1)
+    
+    # === 먼저 평가기 테스트 ===
+    log.info("="*60)
+    log.info("깐깐한 평가기 테스트")
+    log.info("="*60)
+    
+    # StrictEvaluator 임포트 (env.py에 추가했으므로 사용 가능)
+    from environments.editing_env.env import StrictEvaluator
+    
+    evaluator = StrictEvaluator()
+    
+    # 데이터 로드해서 base vs final 비교
+    import json
+    with open(jsonl_path, "r", encoding="utf-8") as f:
+        seq = json.loads(f.readline())
+    
+    base_text = seq["base_text"]
+    final_text = seq["final_text"]
+    
+    base_score = evaluator.evaluate(base_text)
+    final_score = evaluator.evaluate(final_text)
+    
+    log.info(f"\n[저품질 초록 점수]")
+    log.info(f"  grammar:     {base_score.grammar:.2f}")
+    log.info(f"  readability: {base_score.readability:.2f}")
+    log.info(f"  coherence:   {base_score.coherence:.2f}")
+    log.info(f"  overall:     {base_score.overall:.2f}")
+    
+    log.info(f"\n[교정된 초록 점수]")
+    log.info(f"  grammar:     {final_score.grammar:.2f}")
+    log.info(f"  readability: {final_score.readability:.2f}")
+    log.info(f"  coherence:   {final_score.coherence:.2f}")
+    log.info(f"  overall:     {final_score.overall:.2f}")
+    
+    log.info(f"\n점수 차이: {base_score.overall:.2f} → {final_score.overall:.2f} "
+          f"(+{final_score.overall - base_score.overall:.2f})")
+    
+    # 문제점 분석
+    issues = evaluator.detailed_report(base_text)
+    log.info(f"\n[저품질 초록의 문제점]")
+    log.info(f"  모호한 표현: {issues['vague'][:5]}...")
+    log.info(f"  어색한 어미: {issues['awkward'][:5]}...")
+    log.info(f"  구어체: {issues['colloquial'][:5]}...")
+    
+    # === 환경 및 학습 ===
+    log.info("\n" + "="*60)
+    log.info("RL 학습 시작")
+    log.info("="*60)
+    
     env = OfflineEditingEnv(
-        documents=documents,
+        jsonl_path=jsonl_path,           # jsonl_path 명시적 전달
+        documents=[],                    # 오프라인 모드라 빈 리스트
         max_steps=3,
-        terminal_threshold=TERMINAL_THRESHOLD,
-        cost_lambda=1.0,
-        repeat_penalty=REAPEAT_PANELTY,  # 반복 액션에 대한 패널티 정도
-        editor_model=EDITOR_MODEL,
+        terminal_threshold=TERMINAL_THRESHOLD,          # 추가 (호환성)
+        cost_lambda=0.5,                 # 비용 패널티 감소 (학습 용이)
+        repeat_penalty=REPEAT_PENALTY,              # 반복 패널티 감소
+        editor_model=EDITOR_MODEL,     # 기존 설정 유지
+        use_single_sequence=True,        # 오버피팅 모드 ON
+        use_llm_judge=False,             # StrictEvaluator 사용
+        use_offline_reward=True,         # 오프라인 보상 사용
     )
-
-    # 강화학습 정책 구성
-    log.info("강화학습 정책 구성")
+    
     runner = PPORunner(
         env=env,
         max_steps=3,
@@ -72,34 +131,29 @@ def main():
         gamma=0.95,
         lr=3e-4,
         clip_eps=0.2,
-        K_epochs=3,  # 한번의 에피소드 내에서 수행할 신경망 모델 학습 epochs
+        K_epochs=4,
+        # hidden_size=128,                    # offline_ppo.py와 동일
     )
-
-    # 체크포인트에서 재개
-    if CHECKPOINT_DIR:
-        try:
-            runner.load_checkpoint(CHECKPOINT_DIR)
-            log.info(f"체크포인트에서 학습 재개: {CHECKPOINT_DIR}")
-        except FileNotFoundError as e:
-            log.error(f"체크포인트 로드 실패: {e}")
-            return
-
-    # 학습 시작
-    log.info("학습 시작")
-    runner.train(
-        num_episodes=NUM_EPISODES,
-        checkpoint_dir=SAVE_CHECKPOINT_DIR,
-        checkpoint_interval=CHECKPOINT_INTERVAL,
-        log_interval=LOG_INTERVAL,
-        trajectory_save_interval=TRAJECTORY_SAVE_INTERVAL
-    )
-
-    # 평가 시작
-    log.info("평가")
-    runner.evaluate_greedy(max_steps=3)
-
-    return
-
+    
+    log.info("\n[학습 전] 정책:")
+    runner.show_policy()
+    
+    # 학습
+    rewards = runner.train(num_episodes=NUM_EPISODES, log_interval=LOG_INTERVAL)
+    
+    log.info("\n[학습 후] 정책:")
+    runner.show_policy()
+    
+    # 평가
+    runner.evaluate_greedy(max_steps=3)  # 평가 횟수 증가
+    
+    # 결과 요약
+    log.info(f"\n{'='*60}")
+    log.info("학습 결과 요약")
+    log.info(f"{'='*60}")
+    log.info(f"  초기 100ep 평균: {sum(rewards[:100])/100:+.3f}")
+    log.info(f"  마지막 100ep 평균: {sum(rewards[-100:])/100:+.3f}")
+    log.info(f"  개선도: {sum(rewards[-100:])/100 - sum(rewards[:100])/100:+.3f}")
 
 if __name__ == "__main__":
     main()

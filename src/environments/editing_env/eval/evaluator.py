@@ -565,9 +565,9 @@ class AbstractQualityEvaluator:
 
 
 if __name__ == "__main__":
-    print("=" * 80)
-    print("영어 논문 초록 평가 테스트")
-    print("=" * 80)
+    log.info("=" * 80)
+    log.info("영어 논문 초록 평가 테스트")
+    log.info("=" * 80)
 
     evaluator_en = AbstractQualityEvaluator(language="en")
 
@@ -583,25 +583,25 @@ if __name__ == "__main__":
 
     results_en = evaluator_en.evaluate_abstract(sample_abstract_en)
 
-    print(f"\nOverall Score: {results_en['overall_score']:.3f} - {results_en['grade']}")
-    print(f"Language: {results_en['language']}")
-    print(f"\nDetailed Scores:")
-    print(f"  Structure: {results_en['structure']['structure_completeness']:.3f}")
-    print(
+    log.info(f"\nOverall Score: {results_en['overall_score']:.3f} - {results_en['grade']}")
+    log.info(f"Language: {results_en['language']}")
+    log.info(f"\nDetailed Scores:")
+    log.info(f"  Structure: {results_en['structure']['structure_completeness']:.3f}")
+    log.info(
         f"  Length: {results_en['length']['overall_length_score']:.3f} ({results_en['length']['word_count']} words)"
     )
-    print(
+    log.info(
         f"  Academic Style: {results_en['academic_style']['academic_style_score']:.3f}"
     )
-    print(
+    log.info(
         f"  Information: {results_en['information_density']['information_density_score']:.3f}"
     )
-    print(f"  Clarity: {results_en['clarity']['clarity_score']:.3f}")
-    print(f"  Coherence: {results_en['coherence']['coherence_score']:.3f}")
+    log.info(f"  Clarity: {results_en['clarity']['clarity_score']:.3f}")
+    log.info(f"  Coherence: {results_en['coherence']['coherence_score']:.3f}")
 
-    print("\n" + "=" * 80)
-    print("한국어 논문 초록 평가 테스트")
-    print("=" * 80)
+    log.info("\n" + "=" * 80)
+    log.info("한국어 논문 초록 평가 테스트")
+    log.info("=" * 80)
 
     evaluator_ko = AbstractQualityEvaluator(language="ko")
 
@@ -617,16 +617,16 @@ if __name__ == "__main__":
 
     results_ko = evaluator_ko.evaluate_abstract(sample_abstract_ko)
 
-    print(f"\n전체 점수: {results_ko['overall_score']:.3f} - {results_ko['grade']}")
-    print(f"언어: {results_ko['language']}")
-    print(f"\n세부 점수:")
-    print(f"  구조: {results_ko['structure']['structure_completeness']:.3f}")
-    print(
+    log.info(f"\n전체 점수: {results_ko['overall_score']:.3f} - {results_ko['grade']}")
+    log.info(f"언어: {results_ko['language']}")
+    log.info(f"\n세부 점수:")
+    log.info(f"  구조: {results_ko['structure']['structure_completeness']:.3f}")
+    log.info(
         f"  길이: {results_ko['length']['overall_length_score']:.3f} ({results_ko['length']['word_count']} 어절)"
     )
-    print(f"  학술 스타일: {results_ko['academic_style']['academic_style_score']:.3f}")
-    print(
+    log.info(f"  학술 스타일: {results_ko['academic_style']['academic_style_score']:.3f}")
+    log.info(
         f"  정보 밀도: {results_ko['information_density']['information_density_score']:.3f}"
     )
-    print(f"  명확성: {results_ko['clarity']['clarity_score']:.3f}")
-    print(f"  일관성: {results_ko['coherence']['coherence_score']:.3f}")
+    log.info(f"  명확성: {results_ko['clarity']['clarity_score']:.3f}")
+    log.info(f"  일관성: {results_ko['coherence']['coherence_score']:.3f}")
