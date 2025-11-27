@@ -54,48 +54,8 @@ torch.manual_seed(SEED)
 
 
 def main():
-    # 데이터 파일 경로
-    jsonl_path = (
-        DATA_DIR
-        / "paper_data"
-        / "first_doc_all_sequences_prefix_reuse_with_noise.jsonl"
-    )
-
-    if not os.path.exists(jsonl_path):
-        log.info(f"[ERROR] 데이터 파일을 찾을 수 없습니다: {jsonl_path}")
-        exit(1)
-
-    # === 먼저 평가기 테스트 ===
-    log.info("=" * 60)
-    log.info("깐깐한 평가기 테스트")
-    log.info("=" * 60)
-
-    # StrictEvaluator 임포트 (env.py에 추가했으므로 사용 가능)
-
-    evaluator = StrictEvaluator()
-
-    # 데이터 로드해서 base vs final 비교
-    import json
-
-    with open(jsonl_path, "r", encoding="utf-8") as f:
-        seq = json.loads(f.readline())
-    
-    base_text = seq["base_text"]
-
-    # 문제점 분석
-    issues = evaluator.detailed_report(base_text)
-    log.info(f"\n[저품질 초록의 문제점]")
-    log.info(f"  모호한 표현: {issues['vague'][:5]}...")
-    log.info(f"  어색한 어미: {issues['awkward'][:5]}...")
-    log.info(f"  구어체: {issues['colloquial'][:5]}...")
-
-    # === 환경 및 학습 ===
-    log.info("\n" + "=" * 60)
-    log.info("RL 학습 시작")
-    log.info("=" * 60)
-
     env = OfflineEditingEnv(
-        jsonl_path=jsonl_path,  # jsonl_path 명시적 전달
+        jsonl_path=JSONL_PATH,  # jsonl_path 명시적 전달
         documents=[],  # 오프라인 모드라 빈 리스트
         max_steps=3,
         terminal_threshold=TERMINAL_THRESHOLD,  # 추가 (호환성)

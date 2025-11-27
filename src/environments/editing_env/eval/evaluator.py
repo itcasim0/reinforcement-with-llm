@@ -44,7 +44,10 @@ import numpy as np
 from typing import Dict
 from collections import Counter
 
-from utils.logger_factory import log
+# internal
+from src.utils.logger_factory import log
+from .evaluation_config import get_evaluation_config
+
 
 class AbstractQualityEvaluator:
     """
@@ -79,200 +82,39 @@ class AbstractQualityEvaluator:
 
     def _init_english_keywords(self):
         """영어 키워드 초기화"""
-        self.structure_keywords = {
-            "background": [
-                "background",
-                "context",
-                "motivation",
-                "problem",
-                "challenge",
-            ],
-            "objective": [
-                "aim",
-                "goal",
-                "objective",
-                "purpose",
-                "investigate",
-                "study",
-                "explore",
-            ],
-            "method": [
-                "method",
-                "approach",
-                "technique",
-                "algorithm",
-                "framework",
-                "model",
-                "propose",
-            ],
-            "result": [
-                "result",
-                "finding",
-                "demonstrate",
-                "show",
-                "achieve",
-                "performance",
-            ],
-            "conclusion": [
-                "conclude",
-                "implication",
-                "suggest",
-                "contribution",
-                "significant",
-            ],
-        }
-
-        self.academic_connectives = [
-            "however",
-            "moreover",
-            "furthermore",
-            "therefore",
-            "thus",
-            "consequently",
-            "nevertheless",
-            "additionally",
-            "specifically",
-        ]
-
-        self.first_person = ["i ", "we ", "our ", "my ", "me "]
-        self.passive_indicators = ["is ", "are ", "was ", "were ", "been ", "being "]
-        self.filler_words = ["very", "really", "quite", "somewhat", "rather"]
-        self.vague_terms = [
-            "various",
-            "several",
-            "many",
-            "some",
-            "few",
-            "often",
-            "sometimes",
-        ]
-
-        # 영어 단어 길이 기준
-        self.optimal_word_count_min = 150
-        self.optimal_word_count_max = 300
-        self.optimal_words_per_sentence_min = 15
-        self.optimal_words_per_sentence_max = 25
-        self.target_words_per_sentence = 20
+        config = get_evaluation_config("en")
+        
+        self.structure_keywords = config.STRUCTURE_KEYWORDS
+        self.academic_connectives = config.ACADEMIC_CONNECTIVES
+        self.first_person = config.FIRST_PERSON
+        self.passive_indicators = config.PASSIVE_INDICATORS
+        self.filler_words = config.FILLER_WORDS
+        self.vague_terms = config.VAGUE_TERMS
+        
+        # 길이 기준
+        self.optimal_word_count_min = config.OPTIMAL_WORD_COUNT_MIN
+        self.optimal_word_count_max = config.OPTIMAL_WORD_COUNT_MAX
+        self.optimal_words_per_sentence_min = config.OPTIMAL_WORDS_PER_SENTENCE_MIN
+        self.optimal_words_per_sentence_max = config.OPTIMAL_WORDS_PER_SENTENCE_MAX
+        self.target_words_per_sentence = config.TARGET_WORDS_PER_SENTENCE
 
     def _init_korean_keywords(self):
         """한국어 키워드 초기화"""
-        self.structure_keywords = {
-            "background": [
-                "배경",
-                "맥락",
-                "동기",
-                "문제",
-                "과제",
-                "기존",
-                "현재",
-                "기존의",
-                "현재의",
-            ],
-            "objective": [
-                "목적",
-                "목표",
-                "목적은",
-                "목표는",
-                "연구",
-                "조사",
-                "탐구",
-                "분석",
-                "규명",
-                "밝히",
-            ],
-            "method": [
-                "방법",
-                "접근",
-                "기법",
-                "알고리즘",
-                "프레임워크",
-                "모델",
-                "제안",
-                "제시",
-                "개발",
-                "설계",
-            ],
-            "result": [
-                "결과",
-                "발견",
-                "입증",
-                "보여",
-                "달성",
-                "성능",
-                "실험",
-                "분석",
-                "확인",
-            ],
-            "conclusion": [
-                "결론",
-                "시사점",
-                "제안",
-                "기여",
-                "의의",
-                "중요",
-                "기대",
-                "향후",
-            ],
-        }
-
-        self.academic_connectives = [
-            "그러나",
-            "하지만",
-            "또한",
-            "더욱이",
-            "따라서",
-            "그러므로",
-            "그럼에도",
-            "결과적으로",
-            "특히",
-            "구체적으로",
-            "즉",
-            "반면",
-            "한편",
-            "나아가",
-            "이에",
-            "이를 통해",
-        ]
-
-        # 한국어는 1인칭 표현이 다름
-        self.first_person = ["우리는", "본 연구", "저자는", "필자는", "본 논문"]
-
-        # 한국어 수동태/피동 표현
-        self.passive_indicators = [
-            "되었다",
-            "되어",
-            "된다",
-            "되는",
-            "되고",
-            "됨으로써",
-            "이루어졌다",
-            "이루어진",
-            "수행되었다",
-            "수행된",
-        ]
-
-        # 한국어 불필요한 수식어
-        self.filler_words = ["매우", "아주", "상당히", "조금", "약간", "다소", "꽤"]
-
-        # 한국어 모호한 표현
-        self.vague_terms = [
-            "여러",
-            "다양한",
-            "몇몇",
-            "일부",
-            "종종",
-            "때때로",
-            "가끔",
-            "많은",
-        ]
-
-        # 한국어는 어절 기준으로 평가 (영어보다 짧음)
-        # 한국어 300어절 ≈ 영어 200단어
-        self.optimal_word_count_min = 200  # 어절
-        self.optimal_word_count_max = 500  # 어절
-        self.optimal_words_per_sentence_min = 20
-        self.optimal_words_per_sentence_max = 40
-        self.target_words_per_sentence = 30
+        config = get_evaluation_config("ko")
+        
+        self.structure_keywords = config.STRUCTURE_KEYWORDS
+        self.academic_connectives = config.ACADEMIC_CONNECTIVES
+        self.first_person = config.FIRST_PERSON
+        self.passive_indicators = config.PASSIVE_INDICATORS
+        self.filler_words = config.FILLER_WORDS
+        self.vague_terms = config.VAGUE_TERMS
+        
+        # 길이 기준
+        self.optimal_word_count_min = config.OPTIMAL_WORD_COUNT_MIN
+        self.optimal_word_count_max = config.OPTIMAL_WORD_COUNT_MAX
+        self.optimal_words_per_sentence_min = config.OPTIMAL_WORDS_PER_SENTENCE_MIN
+        self.optimal_words_per_sentence_max = config.OPTIMAL_WORDS_PER_SENTENCE_MAX
+        self.target_words_per_sentence = config.TARGET_WORDS_PER_SENTENCE
 
     def evaluate_structure_completeness(self, abstract: str) -> Dict[str, float]:
         """구조적 완성도 평가"""
@@ -565,6 +407,7 @@ class AbstractQualityEvaluator:
             return "D (Needs Improvement)"
 
 
+
 if __name__ == "__main__":
     log.info("=" * 80)
     log.info("영어 논문 초록 평가 테스트")
@@ -584,7 +427,9 @@ if __name__ == "__main__":
 
     results_en = evaluator_en.evaluate_abstract(sample_abstract_en)
 
-    log.info(f"\nOverall Score: {results_en['overall_score']:.3f} - {results_en['grade']}")
+    log.info(
+        f"\nOverall Score: {results_en['overall_score']:.3f} - {results_en['grade']}"
+    )
     log.info(f"Language: {results_en['language']}")
     log.info(f"\nDetailed Scores:")
     log.info(f"  Structure: {results_en['structure']['structure_completeness']:.3f}")
@@ -625,7 +470,9 @@ if __name__ == "__main__":
     log.info(
         f"  길이: {results_ko['length']['overall_length_score']:.3f} ({results_ko['length']['word_count']} 어절)"
     )
-    log.info(f"  학술 스타일: {results_ko['academic_style']['academic_style_score']:.3f}")
+    log.info(
+        f"  학술 스타일: {results_ko['academic_style']['academic_style_score']:.3f}"
+    )
     log.info(
         f"  정보 밀도: {results_ko['information_density']['information_density_score']:.3f}"
     )

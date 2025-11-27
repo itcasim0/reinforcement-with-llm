@@ -2,9 +2,13 @@ import json
 import random
 import re
 
+# internal
+from utils.logger_factory import log
+
 # ---------------------------
 # 1) 노이즈 규칙들 정의 (로그 포함)
 # ---------------------------
+
 
 def corrupt_spacing(text: str):
     """띄어쓰기 일부 없애거나 이상하게 만들기"""
@@ -15,8 +19,8 @@ def corrupt_spacing(text: str):
 
     if random.random() < 0.5:
         i = random.randrange(len(words) - 1)
-        words[i] = words[i] + words[i+1]
-        del words[i+1]
+        words[i] = words[i] + words[i + 1]
+        del words[i + 1]
         new = " ".join(words)
     else:
         i = random.randrange(len(words))
@@ -35,10 +39,14 @@ def corrupt_josa(text: str):
     """조사 틀리게"""
     original = text
     pairs = [
-        ("을", "를"), ("를", "을"),
-        ("은", "는"), ("는", "은"),
-        ("이", "가"), ("가", "이"),
-        ("에", "에서"), ("에서", "에"),
+        ("을", "를"),
+        ("를", "을"),
+        ("은", "는"),
+        ("는", "은"),
+        ("이", "가"),
+        ("가", "이"),
+        ("에", "에서"),
+        ("에서", "에"),
     ]
     candidates = [s for (s, _) in pairs if s in text]
     if not candidates:
@@ -57,11 +65,32 @@ def corrupt_typo(text: str):
     """맞춤법 노이즈"""
     original = text
     typo_map = {
-        '돼': '되', '된': '됀', '고': '구', '있': '잇', '했': '햇', '도': '두',
-        '렇게': '러케', '떻게': '떡케', '몇': '몃', '되': '대', '많': '만',
-        '로': '루', '왜': '외', '조': '죠', '여': '요', '렇': '럿', '좋': '조',
-        '곧바로': '곳바루', '심': '씸', '고 있': '구 잇', '겠': '겟', '딱': '딲',
-        '좀': '쫌', '웬': '왠', '데': '대', '곧': '곳'
+        "돼": "되",
+        "된": "됀",
+        "고": "구",
+        "있": "잇",
+        "했": "햇",
+        "도": "두",
+        "렇게": "러케",
+        "떻게": "떡케",
+        "몇": "몃",
+        "되": "대",
+        "많": "만",
+        "로": "루",
+        "왜": "외",
+        "조": "죠",
+        "여": "요",
+        "렇": "럿",
+        "좋": "조",
+        "곧바로": "곳바루",
+        "심": "씸",
+        "고 있": "구 잇",
+        "겠": "겟",
+        "딱": "딲",
+        "좀": "쫌",
+        "웬": "왠",
+        "데": "대",
+        "곧": "곳",
     }
 
     candidates = [k for k in typo_map if k in text]
@@ -83,8 +112,13 @@ def corrupt_ending(text: str):
     if not m:
         return None
 
-    candidates = [" 했던거다.", " 한거라고 볼수있다.", " 해봤었다.", " 라고 할수있겟다."]
-    new = text[:m.start()] + random.choice(candidates)
+    candidates = [
+        " 했던거다.",
+        " 한거라고 볼수있다.",
+        " 해봤었다.",
+        " 라고 할수있겟다.",
+    ]
+    new = text[: m.start()] + random.choice(candidates)
 
     if new != original:
         return ("corrupt_ending", original, new)
@@ -107,12 +141,19 @@ def corrupt_punctuation(text: str):
     return None
 
 
-RULES = [corrupt_spacing, corrupt_josa, corrupt_typo, corrupt_ending, corrupt_punctuation]
+RULES = [
+    corrupt_spacing,
+    corrupt_josa,
+    corrupt_typo,
+    corrupt_ending,
+    corrupt_punctuation,
+]
 
 
 # ---------------------------
 # 2) 여러 룰을 섞어서 노이즈 추가 (로그 출력)
 # ---------------------------
+
 
 def make_noisy(text: str, n_errors: int = 4) -> str:
     noisy = text
@@ -132,11 +173,8 @@ def make_noisy(text: str, n_errors: int = 4) -> str:
 # 3) JSON 처리
 # ---------------------------
 
-def add_noise_to_json(
-    input_path: str,
-    output_path: str,
-    n_errors: int = 4
-):
+
+def add_noise_to_json(input_path: str, output_path: str, n_errors: int = 4):
 
     with open(input_path, "r", encoding="utf-8") as f:
         data = json.load(f)
