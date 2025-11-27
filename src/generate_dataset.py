@@ -62,7 +62,7 @@ def load_existing_sequences(
             try:
                 rec = json.loads(line)
             except json.JSONDecodeError:
-                print("[WARN] JSON decode error on existing line, skip.")
+                log.info("[WARN] JSON decode error on existing line, skip.")
                 continue
 
             actions = rec.get("actions")
@@ -75,7 +75,7 @@ def load_existing_sequences(
             if isinstance(sid, int) and sid > max_seq_id:
                 max_seq_id = sid
 
-    print(f"[INFO] Loaded {len(seq_cache)} existing sequences from {output_path}")
+    log.info(f"[INFO] Loaded {len(seq_cache)} existing sequences from {output_path}")
     return seq_cache, max_seq_id
 
 
@@ -95,14 +95,14 @@ def build_all_sequences_for_first_doc(output_path: Path):
     docs: List[Document] = loader.get_reconstructed_text(max_docs=1)
 
     if not docs:
-        print("[ERROR] No documents loaded from DomesticReconstructDataLoader.")
+        log.info("[ERROR] No documents loaded from DomesticReconstructDataLoader.")
         return
 
     base_doc: Document = docs[0]
     base_text: str = base_doc.text
 
-    print("[INFO] Base document loaded.")
-    print(base_text[:200] + ("..." if len(base_text) > 200 else ""))
+    log.info("[INFO] Base document loaded.")
+    log.info(base_text[:200] + ("..." if len(base_text) > 200 else ""))
 
     # 2) 에디터 초기화
     editor = DocumentEditor(
@@ -150,13 +150,13 @@ def build_all_sequences_for_first_doc(output_path: Path):
 
             last_action = actions[-1]
 
-            print(f"[INFO] seq {next_sequence_id} (new) / actions = {list(actions)}")
+            log.info(f"[INFO] seq {next_sequence_id} (new) / actions = {list(actions)}")
 
             # LLM 한 번 호출: (input_text, last_action)
             try:
                 edited_text, cost_info = editor.edit(input_text, last_action)
             except Exception as e:
-                print(
+                log.info(
                     f"[WARN] edit failed at seq={next_sequence_id}, "
                     f"actions={actions}, last_action={last_action}: {e}"
                 )
@@ -206,11 +206,11 @@ def build_all_sequences_for_first_doc(output_path: Path):
             try:
                 get_or_build_sequence(actions)
             except Exception as e:
-                print(f"[ERROR] Failed to build sequence {actions}: {e}")
+                log.info(f"[ERROR] Failed to build sequence {actions}: {e}")
                 # 필요하면 여기서 continue로 다음 시퀀스 진행
                 continue
 
-    print(f"[DONE] saved all sequences dataset to {output_path}")
+    log.info(f"[DONE] saved all sequences dataset to {output_path}")
 
 
 if __name__ == "__main__":

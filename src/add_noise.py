@@ -122,7 +122,7 @@ def make_noisy(text: str, n_errors: int = 4) -> str:
 
         if result:
             name, before, after = result
-            print(f"[{name}] '{before}'  →  '{after}'")
+            log.info(f"[{name}] '{before}'  →  '{after}'")
             noisy = after
 
     return noisy
@@ -143,12 +143,12 @@ def add_noise_to_json(
 
     for item in data.get("results", []):
         src = item.get("abstract_reconstructed")
-        print("\n--- NEW ABSTRACT ---")
-        print("[ORIGINAL] ", src)
+        log.info("\n--- NEW ABSTRACT ---")
+        log.info("[ORIGINAL] ", src)
 
         item["abstract_noise"] = make_noisy(src, n_errors=n_errors)
 
-        print("[FINAL NOISE] ", item["abstract_noise"])
+        log.info("[FINAL NOISE] ", item["abstract_noise"])
 
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)

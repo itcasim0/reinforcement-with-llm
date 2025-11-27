@@ -38,7 +38,7 @@ class DomesticReconstructDataLoader:
                         break
 
         except Exception as e:
-            print(f"[WARN] Error reading {self.data_path}: {e}")
+            log.info(f"[WARN] Error reading {self.data_path}: {e}")
 
         return reconstructed_texts
 
@@ -52,7 +52,7 @@ class ReconstructDataLoader:
         self.data_dir = DATA_DIR / "paper_data" / "reconstruct"
 
         if not self.data_dir.exists():
-            print(f"[WARN] Directory not found: {self.data_dir}")
+            log.info(f"[WARN] Directory not found: {self.data_dir}")
             self.file_paths = []
         else:
             # Find all json files in the directory
@@ -85,7 +85,7 @@ class ReconstructDataLoader:
                                 break
 
             except Exception as e:
-                print(f"[WARN] Error reading {file_path}: {e}")
+                log.info(f"[WARN] Error reading {file_path}: {e}")
                 continue
 
         return reconstructed_texts
@@ -120,7 +120,7 @@ class NoiseDataLoader:
                         break
 
         except Exception as e:
-            print(f"[WARN] Error reading {self.data_path}: {e}")
+            log.info(f"[WARN] Error reading {self.data_path}: {e}")
 
         return noise_texts
 
@@ -128,6 +128,6 @@ if __name__ == "__main__":
     # Example usage
     loader = ReconstructDataLoader()
     texts = loader.get_reconstructed_text()
-    print(f"Loaded {len(texts)} reconstructed texts.")
+    log.info(f"Loaded {len(texts)} reconstructed texts.")
     if texts:
-        print(f"First text extracted: {texts[0].text[:100]}...")
+        log.info(f"First text extracted: {texts[0].text[:100]}...")
