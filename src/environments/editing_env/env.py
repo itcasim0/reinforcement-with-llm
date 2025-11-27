@@ -4,6 +4,8 @@ import re
 
 from typing import override
 
+from utils.logger_factory import log
+
 from .components.component import Document, DocumentJudge, DocumentScore, Action
 from .components.editor import DocumentEditor, OfflineSingleDocEditor
 
@@ -230,7 +232,7 @@ class EditingEnv:
 
 
 # class OfflineEditingEnv(EditingEnv):
-    
+
 #     def __init__(self, *args, **kwargs):
 #         super().__init__(*args, **kwargs)
 
@@ -240,54 +242,56 @@ class EditingEnv:
 #     def _edit(self, _):
 #         return self.editor.edit(self.action_history)
 
+
 class OfflineEditingEnv(EditingEnv):
     """
     오프라인 환경 - offline_ppo.py와 동일하게 동작
-    
+
     기존 틀 유지:
     - __init__에서 *args, **kwargs 받기
     - super().__init__ 호출
     - _edit override
     - _load_data 메서드
     """
-    
+
     def __init__(self, *args, **kwargs):
         # kwargs에서 오프라인 전용 파라미터 추출
         self.jsonl_path = kwargs.pop("jsonl_path", None)
         self.use_single_sequence = kwargs.pop("use_single_sequence", True)
         self.use_llm_judge = kwargs.pop("use_llm_judge", False)
         self.use_offline_reward = kwargs.pop("use_offline_reward", True)
-        
+
         # jsonl_path가 없으면 에러
         if self.jsonl_path is None:
             raise ValueError("OfflineEditingEnv requires 'jsonl_path' parameter")
-        
+
         # 더미 documents로 부모 클래스 초기화
-        if 'documents' not in kwargs or not kwargs.get('documents'):
-            kwargs['documents'] = []
-        
+        if "documents" not in kwargs or not kwargs.get("documents"):
+            kwargs["documents"] = []
+
         super().__init__(*args, **kwargs)
-        
+
         # OfflineSingleDocEditor로 교체
         self.editor = OfflineSingleDocEditor()
-        
+
         # 오프라인 데이터 로드
         self.all_sequences = []
         self.action_index = {}
         self._load_data()
-        
+
         self.judge = StrictEvaluator()
-        
+
         # 오버피팅 모드 설정
         self.fixed_sequence_idx = 0
         self.base_text = ""
-    
+
     def _load_data(self):
         """JSONL 데이터 로드 및 인덱싱 (offline_ppo.py와 동일)"""
         import json
+
         self.all_sequences = []
         self.action_index = {}
-        
+
         with open(self.jsonl_path, "r", encoding="utf-8") as f:
             for line in f:
                 if line.strip():
@@ -295,9 +299,9 @@ class OfflineEditingEnv(EditingEnv):
                     self.all_sequences.append(record)
                     actions_tuple = tuple(record["actions"])
                     self.action_index[actions_tuple] = record
-        
+
         log.info(f"[데이터 로드] 총 {len(self.all_sequences)}개 시퀀스")
-    
+
     @override
     def reset(self) -> Tuple[Tuple[float, float, float, float], str]:
         """
@@ -308,22 +312,22 @@ class OfflineEditingEnv(EditingEnv):
         self.current_step = 0
         self.action_history = []
         self.used_actions = set()
-        
+
         # 오버피팅 모드
         if self.use_single_sequence:
             seq = self.all_sequences[self.fixed_sequence_idx]
         else:
             seq = self.all_sequences[random.randint(0, len(self.all_sequences) - 1)]
-        
+
         self.base_text = seq["base_text"]
         self.current_text = self.base_text
-        
+
         # 초기 점수 계산
         self.current_score = self.judge.evaluate(self.current_text)
         state = self._scores_to_state(self.current_score)
-        
+
         return state, self.current_text
-    
+
     @override
     def _edit(self, _):
         """
@@ -331,7 +335,7 @@ class OfflineEditingEnv(EditingEnv):
         action_history를 전달하여 사전 계산된 결과 조회
         """
         return self.editor.edit(self.action_history)
-    
+
     @override
     def step(
         self, action_index: int
@@ -341,20 +345,20 @@ class OfflineEditingEnv(EditingEnv):
         """
         assert 0 <= action_index < self.num_actions
         action = self.actions[action_index]
-        
+
         prev_scores = self.current_score
         done = False
         info = {
             "action": action,
             "prev_scores": prev_scores,
         }
-        
+
         # stop_editing: 종료
         if action == "stop_editing":
             if self.use_offline_reward:
                 # offline_ppo.py 스타일 stop 보상
                 current_quality = (prev_scores.overall - 5.0) / 5.0
-                
+
                 if prev_scores.overall >= 7.0:
                     stop_bonus = 2.0
                 elif prev_scores.overall >= 6.5:
@@ -365,54 +369,54 @@ class OfflineEditingEnv(EditingEnv):
                     stop_bonus = 0.0
                 else:
                     stop_bonus = -1.0
-                
+
                 reward = current_quality + stop_bonus
                 info["stop_bonus"] = stop_bonus
             else:
                 # 기존 방식
                 reward = self._terminal_reward(prev_scores)
-            
+
             done = True
             info["reason"] = "stop_action"
             info["new_scores"] = prev_scores
             next_state = self._scores_to_state(prev_scores)
             self.used_actions.add(action)
-            
+
             # action_history에 추가
             self.action_history.append(action)
-            
+
             return next_state, reward, done, info
-        
+
         # 액션 추가 (stop이 아닌 경우)
         self.action_history.append(action)
         self.current_step += 1
-        
+
         # 오프라인 편집 수행
         edited_text, cost_info = self._edit(action)
         self.current_text = edited_text
-        
+
         # LLM 비용
         usd_cost = cost_info.get("usd_cost", 0.02)
         total_tokens = cost_info.get("total_tokens", 2000)
-        
+
         # 새로운 점수 계산
         new_scores = self.judge.score(self.current_text)
         self.current_score = new_scores
-        
+
         # 보상 계산
         if self.use_offline_reward:
             # offline_ppo.py 스타일 보상
             score_delta = new_scores.overall - prev_scores.overall
-            
+
             if score_delta > 0:
                 reward = score_delta * 3.0  # 긍정적 변화 강화
             else:
                 reward = score_delta * 1.0
-            
+
             # step별 비용 증가
             step_cost_multiplier = 1.0 + (self.current_step * 0.15)
             reward -= self.cost_lambda * usd_cost * step_cost_multiplier
-            
+
             info["score_delta"] = score_delta
         else:
             # 기존 방식 보상
@@ -420,110 +424,155 @@ class OfflineEditingEnv(EditingEnv):
             dr = new_scores.readability - prev_scores.readability
             dc = new_scores.coherence - prev_scores.coherence
             do = new_scores.overall - prev_scores.overall
-            
+
             dg /= 2.0
             dr /= 2.0
             dc /= 2.0
             do /= 2.0
-            
+
             combined_delta = (dg + dr + dc + do) / 4.0
-            
+
             if combined_delta >= 0:
                 reward = combined_delta
             else:
                 reward = -0.2 * abs(combined_delta)
-            
+
             reward -= self.cost_lambda * usd_cost
             info["combined_delta"] = combined_delta
-        
+
         # 반복 패널티
         repeat_penalty_applied = False
         if action in self.used_actions:
             reward -= self.repeat_penalty
             repeat_penalty_applied = True
-        
+
         self.used_actions.add(action)
-        
+
         # 최대 스텝 도달시 종료 보상
         if self.current_step >= self.max_steps:
             final_bonus = self._terminal_reward(new_scores)
             reward += final_bonus
             done = True
             info["reason"] = "max_steps"
-        
+
         # info 정리
         info["new_scores"] = new_scores
         info["repeat_penalty"] = repeat_penalty_applied
         info["llm_cost_usd"] = usd_cost
         info["llm_total_tokens"] = total_tokens
-        
+
         next_state = self._scores_to_state(new_scores)
         return next_state, reward, done, info
+
 
 class StrictEvaluator:
     """
     저품질 초록의 특징을 정확히 잡아내는 평가기
-    
+
     수정: 기본 점수를 낮춰서 저품질 문서 = 낮은 점수가 되도록 함
     """
-    
+
     def __init__(self):
         # === 감점 패턴들 ===
-        
+
         # 1. 모호한/불필요한 표현 (심각도 높음)
         self.vague_patterns = [
-            "일지도 모르는", "일지도 모를", "있을지도 모르는",
-            "아닐까", "않을까", "일 것이다",
-            "좀 ", "약간 ", "조금 ",
-            "가상의", "어떤 ", "그런 ",
-            "같은 것", "라는 것", "라고 하는",
-            "등등", "기타 등등",
+            "일지도 모르는",
+            "일지도 모를",
+            "있을지도 모르는",
+            "아닐까",
+            "않을까",
+            "일 것이다",
+            "좀 ",
+            "약간 ",
+            "조금 ",
+            "가상의",
+            "어떤 ",
+            "그런 ",
+            "같은 것",
+            "라는 것",
+            "라고 하는",
+            "등등",
+            "기타 등등",
         ]
-        
+
         # 2. 어색한 어미 (심각도 높음)
         self.awkward_endings = [
-            "해보아 했다", "해보아야 했다",
-            "인 것이다", "인 것이었다", 
-            "라고 한다", "다고 한다",
-            "했던 것이다", "였던 것이다",
-            "하는 바이다", "되는 바이다",
-            "것이라고", "것이었다고",
+            "해보아 했다",
+            "해보아야 했다",
+            "인 것이다",
+            "인 것이었다",
+            "라고 한다",
+            "다고 한다",
+            "했던 것이다",
+            "였던 것이다",
+            "하는 바이다",
+            "되는 바이다",
+            "것이라고",
+            "것이었다고",
         ]
-        
+
         # 3. 구어체/비학술적 표현 (심각도 중간)
         self.colloquial = [
-            "뭐랄까", "글쎄", "아무튼",
-            "그러니까", "어쩌면", "사실",
-            "솔직히", "당연히", "물론",
-            "엄청", "굉장히", "되게",
-            "진짜", "정말로", "완전",
-            "이런저런", "요즘", "얼마 전",
+            "뭐랄까",
+            "글쎄",
+            "아무튼",
+            "그러니까",
+            "어쩌면",
+            "사실",
+            "솔직히",
+            "당연히",
+            "물론",
+            "엄청",
+            "굉장히",
+            "되게",
+            "진짜",
+            "정말로",
+            "완전",
+            "이런저런",
+            "요즘",
+            "얼마 전",
         ]
-        
+
         # 4. 불필요한 수식/군더더기 (심각도 중간)
         self.fillers = [
-            "매우 ", "아주 ", "상당히 ",
-            "다소 ", "꽤 ", "어느 정도",
-            "기본적으로", "일반적으로 말해서",
-            "말하자면", "이를테면",
-            "다양한 ", "여러 가지 ",
+            "매우 ",
+            "아주 ",
+            "상당히 ",
+            "다소 ",
+            "꽤 ",
+            "어느 정도",
+            "기본적으로",
+            "일반적으로 말해서",
+            "말하자면",
+            "이를테면",
+            "다양한 ",
+            "여러 가지 ",
         ]
-        
+
         # 5. 반복/중복 패턴
         self.redundant = [
-            "즉, 다시 말해", "다시 말해서",
+            "즉, 다시 말해",
+            "다시 말해서",
             "요약하자면, 결론적으로",
         ]
-        
+
         # === 가점 패턴들 (학술적 표현) ===
         self.academic_positive = [
-            "본 연구", "본 논문",
-            "분석하였다", "검증하였다", "확인하였다",
-            "제안한다", "제시한다",
-            "따라서", "그러나", "한편",
-            "결과적으로", "구체적으로",
+            "본 연구",
+            "본 논문",
+            "분석하였다",
+            "검증하였다",
+            "확인하였다",
+            "제안한다",
+            "제시한다",
+            "따라서",
+            "그러나",
+            "한편",
+            "결과적으로",
+            "구체적으로",
         ]
-        
+
         # 구조 키워드
         self.structure_keywords = {
             "background": ["배경", "기존", "현재", "문제점", "필요성"],
@@ -532,72 +581,72 @@ class StrictEvaluator:
             "result": ["결과", "입증", "확인", "나타났다", "보였다"],
             "conclusion": ["결론", "의의", "기여", "향후", "시사점"],
         }
-    
+
     def evaluate(self, text: str) -> DocumentScore:
         """종합 평가"""
         grammar = self._eval_grammar(text)
         readability = self._eval_readability(text)
         coherence = self._eval_coherence(text)
         overall = (grammar + readability + coherence) / 3.0
-        
+
         return DocumentScore(
             grammar=round(grammar, 2),
             readability=round(readability, 2),
             coherence=round(coherence, 2),
             overall=round(overall, 2),
         )
-        
+
     def score(self, text: str) -> DocumentScore:
         """
         PPORunner와 호환되도록 evaluate()를 score()로 래핑
         """
         return self.evaluate(text)
-    
+
     def _eval_grammar(self, text: str) -> float:
         """
         문법/표현 품질 (0~10)
         - 수정: 기본 점수를 5.0으로 낮춤 (저품질 문서 = 낮은 점수)
         """
         score = 5.0  # 기본 점수 낮춤 (기존 8.0 → 5.0)
-        
+
         # 어색한 어미 감점 (각 -1.0으로 증가)
         for pattern in self.awkward_endings:
             count = text.count(pattern)
             score -= count * 1.0  # 기존 0.8 → 1.0
-        
+
         # 모호한 표현 감점 (각 -0.7로 증가)
         for pattern in self.vague_patterns:
             count = text.count(pattern)
             score -= count * 0.7  # 기존 0.5 → 0.7
-        
+
         # 학술적 표현 가점 (각 +0.3, 최대 +3.0)
         bonus = 0
         for pattern in self.academic_positive:
             if pattern in text:
                 bonus += 0.3
         score += min(3.0, bonus)
-        
+
         return max(0, min(10, score))
-    
+
     def _eval_readability(self, text: str) -> float:
         """
         가독성 (0~10)
         - 수정: 기본 점수 낮춤, 감점 강화
         """
         score = 5.0  # 기본 점수 낮춤 (기존 8.0 → 5.0)
-        
+
         # 구어체 감점 (각 -0.8로 증가)
         for pattern in self.colloquial:
             count = text.count(pattern)
             score -= count * 0.8  # 기존 0.6 → 0.8
-        
+
         # 불필요한 수식어 감점 (각 -0.5로 증가)
         for pattern in self.fillers:
             count = text.count(pattern)
             score -= count * 0.5  # 기존 0.3 → 0.5
-        
+
         # 문장 길이 평가
-        sentences = [s.strip() for s in re.split(r'[.!?]', text) if s.strip()]
+        sentences = [s.strip() for s in re.split(r"[.!?]", text) if s.strip()]
         if sentences:
             avg_length = sum(len(s) for s in sentences) / len(sentences)
             if avg_length > 100:
@@ -606,20 +655,20 @@ class StrictEvaluator:
                 score -= 1.2  # 기존 0.8 → 1.2
             elif avg_length < 20:
                 score -= 0.8  # 기존 0.5 → 0.8
-        
+
         # 가점 추가 (짧고 명확한 문장)
         if sentences and 30 <= sum(len(s) for s in sentences) / len(sentences) <= 60:
             score += 1.0
-        
+
         return max(0, min(10, score))
-    
+
     def _eval_coherence(self, text: str) -> float:
         """
         논리적 일관성/구조 (0~10)
         - 수정: 기본 점수를 더 낮춤
         """
         score = 3.0  # 기본 점수 낮춤 (기존 5.0 → 3.0)
-        
+
         # 구조 키워드 가점
         sections_found = 0
         for section, keywords in self.structure_keywords.items():
@@ -627,21 +676,21 @@ class StrictEvaluator:
                 if kw in text:
                     sections_found += 1
                     break
-        
+
         score += sections_found * 1.0  # 기존 0.8 → 1.0
-        
+
         # 연결어 가점
         connectives = ["그러나", "따라서", "한편", "또한", "이에", "결과적으로"]
         conn_count = sum(1 for c in connectives if c in text)
         score += min(1.5, conn_count * 0.4)  # 기존 (1.0, 0.3) → (1.5, 0.4)
-        
+
         # 중복 패턴 감점
         for pattern in self.redundant:
             if pattern in text:
                 score -= 0.8  # 기존 0.5 → 0.8
-        
+
         return max(0, min(10, score))
-    
+
     def detailed_report(self, text: str) -> dict:
         """상세 분석 리포트"""
         issues = {
@@ -650,7 +699,7 @@ class StrictEvaluator:
             "colloquial": [],
             "fillers": [],
         }
-        
+
         for p in self.vague_patterns:
             if p in text:
                 issues["vague"].append(p)
@@ -663,5 +712,5 @@ class StrictEvaluator:
         for p in self.fillers:
             if p in text:
                 issues["fillers"].append(p)
-        
+
         return issues

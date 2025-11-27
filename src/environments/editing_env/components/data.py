@@ -23,25 +23,25 @@ class SingleDocOfflineData:
             DATA_DIR / "paper_data" / "first_doc_all_sequences_prefix_reuse_with_noise.jsonl"
         )
 
-        self.sequneces, self.action_index = self._load_data()
+        self.sequences, self.action_index = self._load_data()
 
     def _load_data(self):
         # JSONL 파일 로드
-        sequneces = []
+        sequences = []
         action_index = {}
         with open(self.jsonl_path, "r", encoding="utf-8") as f:
             for line in f:
                 if line.strip():
                     record = json.loads(line)
-                    sequneces.append(record)
+                    sequences.append(record)
 
                     # actions로 인덱싱 (튜플로 변환하여 hashable하게 만듦)
                     actions_tuple = tuple(record["actions"])
                     action_index[actions_tuple] = record
 
-        log.info(f"총 {len(sequneces)}개의 시퀀스 로드 완료")
+        log.info(f"총 {len(sequences)}개의 시퀀스 로드 완료")
 
-        return sequneces, action_index
+        return sequences, action_index
 
     def get_sequence_by_actions(self, actions: List[str] | Tuple[str]) -> Dict:
         """

@@ -14,10 +14,10 @@ import random
 import torch
 
 # internal
-from environments.editing_env.env import OfflineEditingEnv
+from environments.editing_env.env import OfflineEditingEnv, StrictEvaluator
 from methods.ppo import PPORunner
 
-from config.paths import LOGS_DIR
+from config.paths import LOGS_DIR, DATA_DIR
 from utils.logger_factory import log
 
 # 재현을 위한 seed 설정
@@ -32,7 +32,9 @@ EDITOR_MODEL = "qwen/qwen3-8b"  # 조금 더 성능이 좋지 않은 모델로 �
 # parameters for offline environment (offline_ppo.py와 env.py의 OfflineEditingEnv에 맞춤)
 # offline_ppo.py와 동일하게 스크립트 디렉토리 기준 경로 사용
 script_dir = os.path.dirname(os.path.abspath(__file__))
-JSONL_PATH = os.path.join(script_dir, "first_doc_all_sequences_prefix_reuse_with_noise.jsonl")
+JSONL_PATH = os.path.join(
+    script_dir, "first_doc_all_sequences_prefix_reuse_with_noise.jsonl"
+)
 USE_SINGLE_SEQUENCE = True  # 오버피팅 모드 (첫 번째 시퀀스만 사용)
 USE_LLM_JUDGE = False  # False면 rule-based evaluator 사용
 USE_OFFLINE_REWARD = True  # offline_ppo.py 스타일 보상 함수 사용
@@ -42,7 +44,7 @@ CHECKPOINT_DIR = None  # 학습 재개를 위한 설정 (저장된 체크포인�
 SAVE_CHECKPOINT_DIR = LOGS_DIR / "checkpoints"
 CHECKPOINT_INTERVAL = 1
 LOG_INTERVAL = 100
-TRAJECTORY_SAVE_INTERVAL=1
+TRAJECTORY_SAVE_INTERVAL = 1
 
 NUM_EPISODES = 1000
 
@@ -51,78 +53,60 @@ random.seed(SEED)
 torch.manual_seed(SEED)
 
 
-
-
 def main():
     # 데이터 파일 경로
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    jsonl_path = os.path.join(script_dir, "first_doc_all_sequences_prefix_reuse_with_noise.jsonl")
-    
+    jsonl_path = (
+        DATA_DIR
+        / "paper_data"
+        / "first_doc_all_sequences_prefix_reuse_with_noise.jsonl"
+    )
+
     if not os.path.exists(jsonl_path):
         log.info(f"[ERROR] 데이터 파일을 찾을 수 없습니다: {jsonl_path}")
         exit(1)
-    
+
     # === 먼저 평가기 테스트 ===
-    log.info("="*60)
+    log.info("=" * 60)
     log.info("깐깐한 평가기 테스트")
-    log.info("="*60)
-    
+    log.info("=" * 60)
+
     # StrictEvaluator 임포트 (env.py에 추가했으므로 사용 가능)
-    from environments.editing_env.env import StrictEvaluator
-    
+
     evaluator = StrictEvaluator()
-    
+
     # 데이터 로드해서 base vs final 비교
     import json
+
     with open(jsonl_path, "r", encoding="utf-8") as f:
         seq = json.loads(f.readline())
     
     base_text = seq["base_text"]
-    final_text = seq["final_text"]
-    
-    base_score = evaluator.evaluate(base_text)
-    final_score = evaluator.evaluate(final_text)
-    
-    log.info(f"\n[저품질 초록 점수]")
-    log.info(f"  grammar:     {base_score.grammar:.2f}")
-    log.info(f"  readability: {base_score.readability:.2f}")
-    log.info(f"  coherence:   {base_score.coherence:.2f}")
-    log.info(f"  overall:     {base_score.overall:.2f}")
-    
-    log.info(f"\n[교정된 초록 점수]")
-    log.info(f"  grammar:     {final_score.grammar:.2f}")
-    log.info(f"  readability: {final_score.readability:.2f}")
-    log.info(f"  coherence:   {final_score.coherence:.2f}")
-    log.info(f"  overall:     {final_score.overall:.2f}")
-    
-    log.info(f"\n점수 차이: {base_score.overall:.2f} → {final_score.overall:.2f} "
-          f"(+{final_score.overall - base_score.overall:.2f})")
-    
+
     # 문제점 분석
     issues = evaluator.detailed_report(base_text)
     log.info(f"\n[저품질 초록의 문제점]")
     log.info(f"  모호한 표현: {issues['vague'][:5]}...")
     log.info(f"  어색한 어미: {issues['awkward'][:5]}...")
     log.info(f"  구어체: {issues['colloquial'][:5]}...")
-    
+
     # === 환경 및 학습 ===
-    log.info("\n" + "="*60)
+    log.info("\n" + "=" * 60)
     log.info("RL 학습 시작")
-    log.info("="*60)
-    
+    log.info("=" * 60)
+
     env = OfflineEditingEnv(
-        jsonl_path=jsonl_path,           # jsonl_path 명시적 전달
-        documents=[],                    # 오프라인 모드라 빈 리스트
+        jsonl_path=jsonl_path,  # jsonl_path 명시적 전달
+        documents=[],  # 오프라인 모드라 빈 리스트
         max_steps=3,
-        terminal_threshold=TERMINAL_THRESHOLD,          # 추가 (호환성)
-        cost_lambda=0.5,                 # 비용 패널티 감소 (학습 용이)
-        repeat_penalty=REPEAT_PENALTY,              # 반복 패널티 감소
-        editor_model=EDITOR_MODEL,     # 기존 설정 유지
-        use_single_sequence=True,        # 오버피팅 모드 ON
-        use_llm_judge=False,             # StrictEvaluator 사용
-        use_offline_reward=True,         # 오프라인 보상 사용
+        terminal_threshold=TERMINAL_THRESHOLD,  # 추가 (호환성)
+        cost_lambda=0.5,  # 비용 패널티 감소 (학습 용이)
+        repeat_penalty=REPEAT_PENALTY,  # 반복 패널티 감소
+        editor_model=EDITOR_MODEL,  # 기존 설정 유지
+        use_single_sequence=True,  # 오버피팅 모드 ON
+        use_llm_judge=False,  # StrictEvaluator 사용
+        use_offline_reward=True,  # 오프라인 보상 사용
     )
-    
+
     runner = PPORunner(
         env=env,
         max_steps=3,
@@ -134,19 +118,19 @@ def main():
         K_epochs=4,
         # hidden_size=128,                    # offline_ppo.py와 동일
     )
-    
+
     log.info("\n[학습 전] 정책:")
     runner.show_policy()
-    
+
     # 학습
     rewards = runner.train(num_episodes=NUM_EPISODES, log_interval=LOG_INTERVAL)
-    
+
     log.info("\n[학습 후] 정책:")
     runner.show_policy()
-    
+
     # 평가
     runner.evaluate_greedy(max_steps=3)  # 평가 횟수 증가
-    
+
     # 결과 요약
     log.info(f"\n{'='*60}")
     log.info("학습 결과 요약")
@@ -154,6 +138,7 @@ def main():
     log.info(f"  초기 100ep 평균: {sum(rewards[:100])/100:+.3f}")
     log.info(f"  마지막 100ep 평균: {sum(rewards[-100:])/100:+.3f}")
     log.info(f"  개선도: {sum(rewards[-100:])/100 - sum(rewards[:100])/100:+.3f}")
+
 
 if __name__ == "__main__":
     main()

@@ -44,6 +44,7 @@ import numpy as np
 from typing import Dict
 from collections import Counter
 
+from utils.logger_factory import log
 
 class AbstractQualityEvaluator:
     """
