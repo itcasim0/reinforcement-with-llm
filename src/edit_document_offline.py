@@ -31,9 +31,8 @@ EDITOR_MODEL = "qwen/qwen3-8b"  # 조금 더 성능이 좋지 않은 모델로 �
 
 # parameters for offline environment (offline_ppo.py와 env.py의 OfflineEditingEnv에 맞춤)
 # offline_ppo.py와 동일하게 스크립트 디렉토리 기준 경로 사용
-script_dir = os.path.dirname(os.path.abspath(__file__))
-JSONL_PATH = os.path.join(
-    script_dir, "first_doc_all_sequences_prefix_reuse_with_noise.jsonl"
+JSONL_PATH = (
+    DATA_DIR / "paper_data" / "first_doc_all_sequences_prefix_reuse_with_noise.jsonl"
 )
 USE_SINGLE_SEQUENCE = True  # 오버피팅 모드 (첫 번째 시퀀스만 사용)
 USE_LLM_JUDGE = False  # False면 rule-based evaluator 사용
@@ -83,7 +82,11 @@ def main():
     runner.show_policy()
 
     # 학습
-    rewards = runner.train(num_episodes=NUM_EPISODES, log_interval=LOG_INTERVAL)
+    rewards = runner.train(
+        num_episodes=NUM_EPISODES,
+        log_interval=LOG_INTERVAL,
+        checkpoint_dir=SAVE_CHECKPOINT_DIR,
+    )
 
     log.info("\n[학습 후] 정책:")
     runner.show_policy()

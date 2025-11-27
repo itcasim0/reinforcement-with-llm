@@ -45,7 +45,8 @@ from typing import Dict
 from collections import Counter
 
 # internal
-from src.utils.logger_factory import log
+from utils.logger_factory import log
+
 from .evaluation_config import get_evaluation_config
 
 
@@ -83,14 +84,14 @@ class AbstractQualityEvaluator:
     def _init_english_keywords(self):
         """영어 키워드 초기화"""
         config = get_evaluation_config("en")
-        
+
         self.structure_keywords = config.STRUCTURE_KEYWORDS
         self.academic_connectives = config.ACADEMIC_CONNECTIVES
         self.first_person = config.FIRST_PERSON
         self.passive_indicators = config.PASSIVE_INDICATORS
         self.filler_words = config.FILLER_WORDS
         self.vague_terms = config.VAGUE_TERMS
-        
+
         # 길이 기준
         self.optimal_word_count_min = config.OPTIMAL_WORD_COUNT_MIN
         self.optimal_word_count_max = config.OPTIMAL_WORD_COUNT_MAX
@@ -101,14 +102,14 @@ class AbstractQualityEvaluator:
     def _init_korean_keywords(self):
         """한국어 키워드 초기화"""
         config = get_evaluation_config("ko")
-        
+
         self.structure_keywords = config.STRUCTURE_KEYWORDS
         self.academic_connectives = config.ACADEMIC_CONNECTIVES
         self.first_person = config.FIRST_PERSON
         self.passive_indicators = config.PASSIVE_INDICATORS
         self.filler_words = config.FILLER_WORDS
         self.vague_terms = config.VAGUE_TERMS
-        
+
         # 길이 기준
         self.optimal_word_count_min = config.OPTIMAL_WORD_COUNT_MIN
         self.optimal_word_count_max = config.OPTIMAL_WORD_COUNT_MAX
@@ -405,7 +406,6 @@ class AbstractQualityEvaluator:
             return "C (Acceptable)"
         else:
             return "D (Needs Improvement)"
-
 
 
 if __name__ == "__main__":
