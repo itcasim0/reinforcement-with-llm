@@ -12,10 +12,46 @@ import json
 from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime
+import re
+import random
 
 from llm.core import client
 from utils.logger_factory import log
 
+VAGUE_PATTERNS = [
+            "일지도 모르는", "일지도 모를", "있을지도 모르는",
+            "아닐까", "않을까", "일 것이다",
+            "좀 ", "약간 ", "조금 ",
+            "가상의", "어떤 ", "그런 ",
+            "같은 것", "라는 것", "라고 하는",
+            "등등", "기타 등등",
+        ]
+        
+AWKWARD_ENDINGS = [
+            "해보아 했다", "해보아야 했다",
+            "인 것이다", "인 것이었다", 
+            "라고 한다", "다고 한다",
+            "했던 것이다", "였던 것이다",
+            "하는 바이다", "되는 바이다",
+            "것이라고", "것이었다고",
+        ]
+        
+COLLOQUIAL = [
+            "뭐랄까", "글쎄", "아무튼",
+            "그러니까", "어쩌면", "사실",
+            "솔직히", "당연히", "물론",
+            "엄청", "굉장히", "되게",
+            "진짜", "정말로", "완전",
+            "이런저런", "요즘", "얼마 전",
+        ]
+        
+FILLERS = [
+            "매우 ", "아주 ", "상당히 ",
+            "다소 ", "꽤 ", "어느 정도",
+            "기본적으로", "일반적으로 말해서",
+            "말하자면", "이를테면",
+            "다양한 ", "여러 가지 ",
+        ]
 
 class TextReconstructorLLM:
     """LLM을 사용하여 텍스트를 재구성하는 클래스"""
@@ -27,6 +63,7 @@ class TextReconstructorLLM:
         """
         self.model_name = model_name
 
+    # 최초의 데이터를 생성할 때 쓰는 함수?
     def reconstruct_text(self, original_text: str) -> str:
         """
         원본 텍스트를 LLM으로 재구성
@@ -38,19 +75,32 @@ class TextReconstructorLLM:
             재구성된 텍스트 (문자열)
         """
         # 프롬프트 구성
-        prompt = """[원본 텍스트]를 [재구성 사항]을 참고하여 적절히 바꿔줘.
+#         prompt = """[원본 텍스트]를 [재구성 사항]을 참고하여 적절히 바꿔줘.
 
-[재구성 사항]
-1. 문법, 맞춤법, 띄어쓰기, 시제 오류가 있도록 해.
-2. 표현과 문장 구조를 더 모호하고 애매하게 하여 독자가 쉽게 따라가지 못하도록 해.
-3. 중복되거나 불필요한 부분을 추가하고 장황하게 구성해.
-4. 문장과 문단 순서를 조정해서 논리가 없는 흐름으로 부자연스럽게 해줘.
-"""
+# [재구성 사항]
+# 1. 문법, 맞춤법, 띄어쓰기, 시제 오류가 있도록 해.
+# 2. 표현과 문장 구조를 더 모호하고 애매하게 하여 독자가 쉽게 따라가지 못하도록 해.
+# 3. 중복되거나 불필요한 부분을 추가하고 장황하게 구성해.
+# 4. 문장과 문단 순서를 조정해서 논리가 없는 흐름으로 부자연스럽게 해줘.
+# """
+        prompt = """
+        [원본 텍스트]를 [재구성 사항]을 참고하여 품질을 극단적으로 낮춰줘.
 
-        content = f"""[원본 텍스트]
-{original_text}
+        [재구성 사항]
+        1. 문법, 맞춤법, 시제 오류를 다수 포함시켜.
+        2. 모호하고 애매한 표현을 사용해: "일지도 모르는", "어떤", "같은 것", "등등", "아닐까", "좀", "약간"
+        3. 어색하고 장황한 종결어미를 사용해: "인 것이다", "했던 것이다", "하는 바이다", "라고 한다", "것이라고"
+        4. 구어체/감정적 표현을 추가해: "사실", "솔직히", "엄청", "진짜", "아무튼", "그러니까", "당연히"
+        5. 불필요한 수식어를 남발해: "매우", "다양한", "여러 가지", "굉장히", "상당히", "기본적으로"
+        6. 중복되고 장황한 내용을 추가해.
+        7. 논리 흐름을 무너뜨리고 문장 순서를 부자연스럽게 배치해.
+        """
 
-위 내용을 [재구성 사항]을 참고하여 텍스트에 오류가 많도록 재구성해줘."""
+        content = f"""
+        [원본 텍스트] {original_text}
+
+        위 내용을 [재구성 사항]을 참고하여 텍스트에 오류가 많도록 재구성해줘.
+        """
 
         try:
             # LLM 호출
@@ -99,6 +149,154 @@ def load_paper_data(json_path: Path) -> List[Dict[str, Any]]:
     log.warning("Unexpected data structure: 'papers' key not found")
     return []
 
+# =======================================================
+# add_noise는 LLM이 내가 원하는 바 대로 (평가 점수가 까일만한 단어들이나 문장을) 못만들었을 시를 대비하여 사용
+def add_noise(text: str, noise_ratio: float = 0.15) -> str:
+    """
+    텍스트에 노이즈 추가
+    1. VAGUE_PATTERNS: 문장 중간 삽입
+    2. AWKWARD_ENDINGS: 문장 끝부분 추가
+    3. COLLOQUIAL: 문장 앞 삽입
+    4. FILLERS: 단어 앞 삽입
+
+    Args:
+        text: 원본 텍스트
+        noise_ratio: 노이즈 비율 (0~1)
+
+    Returns:
+        노이즈가 추가된 텍스트
+    """    
+    if not text or not text.strip():
+        return text
+    
+    # 문장 단위로 분리
+    parts = re.split(r'([.!?])\s*', text)
+    
+    processed_sentences = []
+    for i in range(0, len(parts), 2):
+        if i >= len(parts):
+            break
+        
+        sentence = parts[i].strip()
+        if not sentence:
+            continue
+        
+        punctuation = parts[i+1] if i+1 < len(parts) else '.'
+        
+        # COLLOQUIAL 문장 앞 삽입
+        if random.random() < noise_ratio * 0.7:
+            colloquial = random.choice(COLLOQUIAL)
+            sentence = f"{colloquial} {sentence}"
+        
+        # 문장을 단어로 분리
+        words = sentence.split()
+        
+        if len(words) > 0:
+            # VAGUE_PATTERNS 문장 중간 삽입
+            if len(words) > 2 and random.random() < noise_ratio:
+                vague = random.choice(VAGUE_PATTERNS)
+                insert_pos = random.randint(1, len(words)-1)
+                words.insert(insert_pos, vague)
+            
+            # FILLERS 단어 앞 삽입 (여러 개 가능)
+            num_fillers = int(len(words) * noise_ratio * 0.5)
+            if num_fillers > 0:
+                filler_indices = random.sample(range(len(words)), min(num_fillers, len(words)))
+                for idx in sorted(filler_indices, reverse=True):
+                    words.insert(idx, random.choice(FILLERS))
+            
+            sentence = ' '.join(words)
+        
+        # AWKWARD_ENDINGS 문장 끝에 추가
+        if random.random() < noise_ratio * 0.6:
+            awkward = random.choice(AWKWARD_ENDINGS)
+            sentence = sentence + " " + awkward
+        
+        # 문장과 처리된 문자들 병합.
+        processed_sentences.append(sentence + punctuation)
+    
+    return ' '.join(processed_sentences)
+
+# noise를 접수에따라서 세게 할지 말지에 대한 적용
+def adaptive_add_noise(text: str, pattern_score: float) -> tuple:
+    """
+    패턴 점수에 따라 noise 강도를 조절하여 적용
+    
+    Args:
+        text: 원본 텍스트
+        pattern_score: 패턴 포함 점수 (0.0 ~ 1.0)
+    
+    Returns:
+        (noised_text, noise_applied, noise_ratio_used)
+    """
+    # 패턴 점수에 따라 noise 결정
+    if pattern_score < 0.3:
+        # 패턴 부족은 강하게 처리할거임
+        noise_ratio = 0.3
+        noise_applied = True
+    elif pattern_score < 0.6:
+        # 적당히 부족하면 덜 강하게처리할거임
+        noise_ratio = 0.15
+        noise_applied = True
+    else:
+        # 패턴이 많으면 노이즈 안넣음
+        return text, False, 0.0
+    
+    noised_text = add_noise(text, noise_ratio)
+    return noised_text, noise_applied, noise_ratio
+
+# 만들어진 Text 논문 초록 데이터에 대해서  패턴이 얼마나 포함되어있는지 확인
+def check_pattern_coverage(text: str) -> dict:
+    """
+    텍스트에 각 패턴이 얼마나 포함됐는지 체크
+    
+    Args:
+        text: 분석할 텍스트
+    
+    Returns:
+        {
+            'vague_count': int,
+            'awkward_count': int,
+            'colloquial_count': int,
+            'fillers_count': int,
+            'total_score': float  # 0.0 ~ 1.0
+        }
+    """
+    if not text:
+        return {
+            'vague_count': 0,
+            'awkward_count': 0,
+            'colloquial_count': 0,
+            'fillers_count': 0,
+            'total_score': 0.0
+        }
+    
+    # 각 패턴 카운트
+    vague_count = sum(1 for pattern in VAGUE_PATTERNS if pattern in text)
+    awkward_count = sum(1 for pattern in AWKWARD_ENDINGS if pattern in text)
+    colloquial_count = sum(1 for pattern in COLLOQUIAL if pattern in text)
+    fillers_count = sum(1 for pattern in FILLERS if pattern in text)
+    
+    # 총 패턴 개수
+    total_patterns = vague_count + awkward_count + colloquial_count + fillers_count
+    
+    # 문장 수 추정 (구두점 기준)
+    sentence_count = max(1, text.count('.') + text.count('!') + text.count('?'))
+    
+    # 점수 계산: 문장당 패턴 비율 (0.0 ~ 1.0 정규화)
+    # 문장당 2개 이상이면 1.0으로 간주
+    patterns_per_sentence = total_patterns / sentence_count
+    total_score = min(1.0, patterns_per_sentence / 2.0)
+    
+    return {
+        'vague_count': vague_count,
+        'awkward_count': awkward_count,
+        'colloquial_count': colloquial_count,
+        'fillers_count': fillers_count,
+        'total_score': total_score
+    }
+# =======================================================
+
 
 def reconstruct_paper(
     json_path: Path,
@@ -142,13 +340,33 @@ def reconstruct_paper(
 
         # LLM 재구성
         reconstructed = reconstructor.reconstruct_text(abstract)
+        
+        # 패턴 ㅔ크
+        pattern_coverage = check_pattern_coverage(reconstructed)
+        log.info(f"Pattern coverage: {pattern_coverage}")
+        pattern_score = pattern_coverage['total_score']
+        
+        # 점수에 따라 노이즈 적용
+        noised, noise_applied, noise_ratio = adaptive_add_noise(reconstructed, pattern_score)
 
+        # paper_result = {
+        #     "title": title,
+        #     "author": paper.get("author"),
+        #     "journal": paper.get("journal"),
+        #     "abstract_original": abstract,
+        #     "abstract_reconstructed": reconstructed,
+        # }
         paper_result = {
             "title": title,
             "author": paper.get("author"),
             "journal": paper.get("journal"),
             "abstract_original": abstract,
             "abstract_reconstructed": reconstructed,
+            "abstract_noised": noised,
+            "metadata": {
+                "pattern_score": pattern_score,
+                "noise_applied": noise_applied
+            }
         }
 
         # 기존 파일 내용 읽기
@@ -163,6 +381,7 @@ def reconstruct_paper(
             json.dump(data, f, ensure_ascii=False, indent=2)
 
     log.info(f"All results saved to: {output_file}")
+
 
 def main():
     """메인 함수"""
