@@ -6,7 +6,6 @@ from utils.logger_factory import log
 
 from .data import SingleDocOfflineData
 
-
 class DocumentEditor:
     """
     입력된 문서와 행동을 토대로 편집하는 클래스
@@ -68,6 +67,21 @@ class DocumentEditor:
                 "논리적인 흐름이 더 자연스럽게 느껴지도록 재구성해줘. "
                 "필요하다면 문장을 나누거나 이어서, 전개가 매끄럽게 보이게 해. "
                 "내용 자체를 추가로 발명하지 말고, 기존 내용을 재구성하는 데 집중해. "
+                "수정된 글만 출력하고, 설명이나 코멘트는 쓰지 마."
+            )
+        elif action == "make_academic":
+            # 학술적/논문 초록 스타일로 변환
+            instruction = (
+                "다음 글을 한국어 학술 논문 초록 스타일에 가깝게 다듬어줘. "
+                "내용과 정보는 바꾸지 말고, 표현과 어투를 더 형식적이고 객관적으로 바꿔. "
+                "필요하다면 '본 연구', '본 논문', '저자는', '필자는', '우리는' 과 같은 "
+                "연구 주체 표현을 적절히 사용할 수 있어. "
+                "문장 연결 시에는 '그러나', '하지만', '또한', '더욱이', '따라서', '그러므로', "
+                "'그럼에도', '결과적으로', '특히', '구체적으로', '즉', '반면', '한편', '나아가', "
+                "'이에', '이를 통해'와 같은 학술적 연결어를 자연스럽게 활용해. "
+                "한국어 피동/수동 표현(예: '~되었다', '~되어', '~된다', '~되는', '~되고', "
+                "'~됨으로써', '~이루어졌다', '~이루어진', '~수행되었다', '~수행된')을 "
+                "남용하지 않는 선에서 사용해, 보다 학술적인 톤을 만들어줘. "
                 "수정된 글만 출력하고, 설명이나 코멘트는 쓰지 마."
             )
         else:
@@ -154,6 +168,19 @@ class DocumentEditor:
 필요하다면 문장을 나누거나 이어서, 전개가 매끄럽게 보이게 해.
 내용 자체를 추가로 발명하지 말고, 기존 내용을 재구성하는 데 집중해.
 수정된 글만 출력하고, 설명이나 코멘트는 쓰지 마.
+
+한국어 학술 논문 초록 스타일에 가깝게 다듬어줘.
+내용과 정보는 바꾸지 말고, 표현과 어투를 더 형식적이고 객관적으로 바꿔.
+필요하다면 '본 연구', '본 논문', '저자는', '필자는', '우리는' 과 같은
+연구 주체 표현을 적절히 사용할 수 있어.
+문장 연결 시에는 '그러나', '하지만', '또한', '더욱이', '따라서', '그러므로',
+'그럼에도', '결과적으로', '특히', '구체적으로', '즉', '반면', '한편', '나아가',
+'이에', '이를 통해'와 같은 학술적 연결어를 자연스럽게 활용해.
+한국어 피동/수동 표현(예: '~되었다', '~되어', '~된다', '~되는', '~되고',
+'~됨으로써', '~이루어졌다', '~이루어진', '~수행되었다', '~수행된')을
+남용하지 않는 선에서 사용해, 보다 학술적인 톤을 만들어줘.
+수정된 글만 출력하고, 설명이나 코멘트는 쓰지 마.
+
 """
         user_prompt = f"""작업 지시: {instruction}
 
@@ -176,15 +203,14 @@ class DocumentEditor:
 
 
 class OfflineSingleDocEditor:
-    def __init__(self, base_cost: float = 0.02):
-        self.data = SingleDocOfflineData()
+    def __init__(self, jsonl_path, base_cost: float = 0.02):
+        self.data = SingleDocOfflineData(jsonl_path)
         self.base_cost = base_cost
         self.base_token = 2000
 
     def edit(self, actions: List[str] | Tuple[str]) -> Tuple[str, Dict[str, float]]:
         sequence = self.data.get_sequence_by_actions(actions)
         steps = sequence.get("steps", [])
-
         if not steps:
             log.warning("Offline docs 데이터에 'steps' key가 없습니다.")
             steps = [{}]

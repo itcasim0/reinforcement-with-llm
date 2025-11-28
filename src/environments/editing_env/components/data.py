@@ -7,7 +7,7 @@ from utils.logger_factory import log
 
 
 class SingleDocOfflineData:
-    def __init__(self):
+    def __init__(self, jsonl_path=DATA_DIR / "paper_data" / "sequences_20251128_014521.jsonl"):
         """
         JSONL 파일을 로드하고 인덱스를 생성합니다.
 
@@ -15,13 +15,7 @@ class SingleDocOfflineData:
             jsonl_path: JSONL 파일 경로
         """
 
-        # self.jsonl_path = (
-        #     DATA_DIR / "paper_data" / "first_doc_all_sequences_prefix_reuse.jsonl"
-        # )
-
-        self.jsonl_path = (
-            DATA_DIR / "paper_data" / "first_doc_all_sequences_prefix_reuse_with_noise.jsonl"
-        )
+        self.jsonl_path = jsonl_path
 
         self.sequences, self.action_index = self._load_data()
 

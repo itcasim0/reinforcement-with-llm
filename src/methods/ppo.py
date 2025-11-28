@@ -548,8 +548,8 @@ class PPORunner:
             next_state, reward, done, info = self.env.step(action_idx)
 
             log.info(f"\n[Step {t+1}] action = {action_name}, reward = {reward:.3f}")
-            log.info("  prev scores:", info.get("prev_scores"))
-            log.info("  new  scores:", info.get("new_scores"))
+            log.info(f"  prev scores: {info.get("prev_scores")}")
+            log.info(f"  new  scores: {info.get("new_scores")}")
             log.info("[before]")
             log.info(before_text)
             log.info("[after]")
@@ -564,7 +564,7 @@ class PPORunner:
                 break
 
         log.info(f"\n[Eval] 최종 점수: {self.env.current_score}")
-        log.info("선택된 액션 인덱스 시퀀스:", actions_taken)
+        log.info(f"선택된 액션 인덱스 시퀀스: {actions_taken}")
     
     # -----------------------------
     # 정책 시각화

@@ -20,7 +20,8 @@ class EditingEnv:
         1: improve_clarity
         2: make_concise
         3: improve_structure
-        4: stop_editing
+        4: make_academic
+        5: stop_editing
 
     Args:
         documents (List[Document]): 환경에서 사용할 문서 데이터 리스트
@@ -272,7 +273,7 @@ class OfflineEditingEnv(EditingEnv):
         super().__init__(*args, **kwargs)
 
         # OfflineSingleDocEditor로 교체
-        self.editor = OfflineSingleDocEditor()
+        self.editor = OfflineSingleDocEditor(self.jsonl_path)
 
         # 오프라인 데이터 로드
         self.all_sequences = []

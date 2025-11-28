@@ -12,11 +12,15 @@
 import json
 import itertools
 from pathlib import Path
+from datetime import datetime
 from typing import Dict, List, Tuple, Any
+
+from utils.logger_factory import log
 
 from config.paths import DATA_DIR
 from dataloader.reconstruct_loader import DomesticReconstructDataLoader
-from environments.editing_env.components.component import DocumentEditor, Document
+from environments.editing_env.components.component import Document
+from environments.editing_env.components.editor import DocumentEditor
 
 # 사용할 액션 4개 (순서 그대로 product에 사용)
 ACTIONS = [
@@ -24,13 +28,13 @@ ACTIONS = [
     "improve_clarity",
     "make_concise",
     "improve_structure",
+    "make_academic"
 ]
-
 
 def generate_action_sequences(max_len: int = 3):
     """
     길이 1 ~ max_len 까지의 모든 액션 시퀀스를 생성.
-    - ACTIONS = 4개, max_len = 3 이면 4^1 + 4^2 + 4^3 = 84개
+    - ACTIONS = 5개, max_len = 3 이면 5^1 + 5^2 + 5^3 = 155개
     """
     for length in range(1, max_len + 1):
         for seq in itertools.product(ACTIONS, repeat=length):
@@ -82,7 +86,7 @@ def load_existing_sequences(
 def build_all_sequences_for_first_doc(output_path: Path):
     """
     DomesticReconstructDataLoader에서 첫 번째 문서를 가져와서,
-    모든 액션 시퀀스(길이 1~3, 총 84개)에 대해 편집을 수행하고 JSONL로 저장.
+    모든 액션 시퀀스(길이 1~3, 총 155개)에 대해 편집을 수행하고 JSONL로 저장.
 
     - 각 시퀀스는 base_text에서 시작해서 시퀀스의 액션을 순서대로 적용한 결과.
     - 이미 계산된 prefix 시퀀스는 다시 LLM 호출하지 않고 재사용해서,
@@ -214,6 +218,5 @@ def build_all_sequences_for_first_doc(output_path: Path):
 
 
 if __name__ == "__main__":
-    # 예: data/editing/first_doc_all_sequences_prefix_reuse.jsonl 로 저장
-    output_file = DATA_DIR / "editing" / "first_doc_all_sequences_prefix_reuse.jsonl"
+    output_file = DATA_DIR / "editing" / f"sequences_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jsonl"
     build_all_sequences_for_first_doc(output_file)
