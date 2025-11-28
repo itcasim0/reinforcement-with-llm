@@ -8,7 +8,7 @@ import torch.optim as optim
 from torch.distributions import Categorical
 
 # internal
-from environments.editing_env.env import EditingEnv
+from environments.editing_env.env import EditingEnv, OfflineEditingEnv
 
 from utils.util import today_datetime
 from utils.logger_factory import log
@@ -59,7 +59,7 @@ class PPORunner:
 
     def __init__(
         self,
-        env: EditingEnv,
+        env: EditingEnv| OfflineEditingEnv,
         max_steps: 3,
         state_dim: int,  # = 4 + 1 + num_actions
         num_actions: int,
@@ -73,7 +73,7 @@ class PPORunner:
         log.info(f"디바이스 설정: {self.device}")
 
         # 환경 초기화
-        self.env: EditingEnv = env
+        self.env: EditingEnv | OfflineEditingEnv = env
         self.max_steps = max_steps
 
         # PPOPolicy(신경망 모델) 설계
@@ -96,22 +96,22 @@ class PPORunner:
         self.best_score = -float("inf")  # 최고 점수 기록
 
     # -----------------------------
-    # 관측 벡터 생성: (g,r,c,o) + step + last_action
+    # 관측 벡터 생성: (structure, length, academic_style, information_density, clarity, overall) + step + last_action
     # -----------------------------
     def _build_obs(
         self,
-        state: Tuple[float, float, float, float],  # ← float로
+        state: Tuple[float, float, float, float, float, float],  # 6개 평가 기준
         step_idx: int,
         last_action_idx: int,
     ) -> torch.Tensor:
         """
-        state: (g, r, c, o) 정수
+        state: (structure, length, academic_style, information_density, clarity, overall)
         step_idx: 0,1,... (현재 step 인덱스)
         last_action_idx: 직전 액션 인덱스, 없으면 -1
         """
-        g, r, c, o = state
+        structure, length, academic_style, information_density, clarity, overall = state
         base = (
-            torch.tensor([g, r, c, o], dtype=torch.float32, device=self.device) / 10.0
+            torch.tensor([structure, length, academic_style, information_density, clarity, overall], dtype=torch.float32, device=self.device) / 10.0
         )
 
         # step_norm: 0 ~ 1
@@ -415,9 +415,11 @@ class PPORunner:
                 if hasattr(value, '__dict__'):
                     # DocumentScore 같은 객체는 딕셔너리로 변환
                     serializable_info[key] = {
-                        "grammar": float(value.grammar),
-                        "readability": float(value.readability),
-                        "coherence": float(value.coherence),
+                        "structure": float(value.structure),
+                        "length": float(value.length),
+                        "academic_style": float(value.academic_style),
+                        "information_density": float(value.information_density),
+                        "clarity": float(value.clarity),
                         "overall": float(value.overall),
                     }
                 else:
@@ -426,10 +428,12 @@ class PPORunner:
             step_info = {
                 "step": step_idx,
                 "state": {
-                    "grammar": float(traj["states"][step_idx][0]),
-                    "readability": float(traj["states"][step_idx][1]),
-                    "coherence": float(traj["states"][step_idx][2]),
-                    "overall": float(traj["states"][step_idx][3]),
+                    "structure": float(traj["states"][step_idx][0]),
+                    "length": float(traj["states"][step_idx][1]),
+                    "academic_style": float(traj["states"][step_idx][2]),
+                    "information_density": float(traj["states"][step_idx][3]),
+                    "clarity": float(traj["states"][step_idx][4]),
+                    "overall": float(traj["states"][step_idx][5]),
                 },
                 "action": int(traj["actions"][step_idx]),
                 "action_name": self.env.actions[traj["actions"][step_idx]],
@@ -574,10 +578,12 @@ class PPORunner:
         state, _ = self.env.reset()
         
         log.info(f"\n현재 문서 점수:")
-        log.info(f"  grammar:     {state[0]:.2f}")
-        log.info(f"  readability: {state[1]:.2f}")
-        log.info(f"  coherence:   {state[2]:.2f}")
-        log.info(f"  overall:     {state[3]:.2f}")
+        log.info(f"  structure:           {state[0]:.2f}")
+        log.info(f"  length:              {state[1]:.2f}")
+        log.info(f"  academic_style:      {state[2]:.2f}")
+        log.info(f"  information_density: {state[3]:.2f}")
+        log.info(f"  clarity:             {state[4]:.2f}")
+        log.info(f"  overall:             {state[5]:.2f}")
         
         obs = self._build_obs(state, 0, -1)
         with torch.no_grad():

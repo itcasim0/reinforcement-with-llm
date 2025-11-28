@@ -14,7 +14,7 @@ import random
 import torch
 
 # internal
-from environments.editing_env.env import OfflineEditingEnv, StrictEvaluator
+from environments.editing_env.env import OfflineEditingEnv
 from methods.ppo import PPORunner
 
 from config.paths import LOGS_DIR, DATA_DIR
@@ -31,9 +31,7 @@ EDITOR_MODEL = "qwen/qwen3-8b"  # 조금 더 성능이 좋지 않은 모델로 �
 
 # parameters for offline environment (offline_ppo.py와 env.py의 OfflineEditingEnv에 맞춤)
 # offline_ppo.py와 동일하게 스크립트 디렉토리 기준 경로 사용
-JSONL_PATH = (
-    DATA_DIR / "paper_data" / "sequences_20251128_014521.jsonl"
-)
+JSONL_PATH = DATA_DIR / "paper_data" / "sequences_20251128_014521_tmp.jsonl"
 USE_SINGLE_SEQUENCE = True  # 오버피팅 모드 (첫 번째 시퀀스만 사용)
 USE_LLM_JUDGE = False  # False면 rule-based evaluator 사용
 USE_OFFLINE_REWARD = True  # offline_ppo.py 스타일 보상 함수 사용
@@ -69,7 +67,7 @@ def main():
     runner = PPORunner(
         env=env,
         max_steps=3,
-        state_dim=4 + 1 + env.num_actions,  # g,r,c,o + step + last_action_one_hot
+        state_dim=6 + 1 + env.num_actions,  # 6가지 평가 기준 + step + last_action_one_hot
         num_actions=env.num_actions,
         gamma=0.95,
         lr=3e-4,

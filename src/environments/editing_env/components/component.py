@@ -24,10 +24,12 @@ class DocumentScore:
     각 점수는 0~10의 값을 가짐
     """
 
-    grammar: float = 5.0
-    readability: float = 5.0
-    coherence: float = 5.0
-    overall: float = 5.0
+    structure: float = 5.0  # 구조적 완성도
+    length: float = 5.0  # 문장 길이 점수
+    academic_style: float = 5.0  # 학술적 형식 점수
+    information_density: float = 5.0  # 정보 밀도 점수
+    clarity: float = 5.0  # 명확성 점수
+    overall: float = 5.0  # 전체 점수
 
 
 @dataclass
@@ -77,11 +79,13 @@ class DocumentJudge:
         """
         Abstract 전용 평가 (500개 논문 분석 기반)
 
-        AbstractQualityEvaluator의 항목을 DocumentScore로 자연스럽게 매핑:
-        - grammar <- structure (구조적 완성도)
-        - readability <- clarity (명확성)
-        - coherence <- coherence (일관성)
-        - overall <- overall (전체 점수)
+        AbstractQualityEvaluator의 5가지 평가 기준을 그대로 사용:
+        - structure: 구조적 완성도
+        - length: 문장 길이 점수
+        - academic_style: 학술적 형식 점수
+        - information_density: 정보 밀도 점수
+        - clarity: 명확성 점수
+        - overall: 전체 점수
 
         Args:
             document: Document 객체, 문자열(str), 또는 Document.text
@@ -102,15 +106,19 @@ class DocumentJudge:
         # AbstractQualityEvaluator 호출
         result = self.abstract_evaluator.evaluate_abstract(text)
 
-        # 0~1 스케일을 0~10으로 변환 후 매핑
-        grammar = result["structure"]["structure_completeness"] * 10.0
-        readability = result["clarity"]["clarity_score"] * 10.0
-        coherence = result["coherence"]["coherence_score"] * 10.0
+        # 0~1 스케일을 0~10으로 변환
+        structure = result["structure"]["structure_completeness"] * 10.0
+        length = result["length"]["overall_length_score"] * 10.0
+        academic_style = result["academic_style"]["academic_style_score"] * 10.0
+        information_density = result["information_density"]["information_density_score"] * 10.0
+        clarity = result["clarity"]["clarity_score"] * 10.0
         overall = result["overall_score"] * 10.0
 
         return DocumentScore(
-            grammar=round(grammar, 1),
-            readability=round(readability, 1),
-            coherence=round(coherence, 1),
+            structure=round(structure, 1),
+            length=round(length, 1),
+            academic_style=round(academic_style, 1),
+            information_density=round(information_density, 1),
+            clarity=round(clarity, 1),
             overall=round(overall, 1),
         )
