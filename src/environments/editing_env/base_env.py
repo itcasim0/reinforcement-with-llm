@@ -26,7 +26,7 @@ class EditingEnv:
         documents (List[Document]): 환경에서 사용할 문서 데이터 리스트
         max_steps (int): 에피소드 당 최대 허용 스텝 수
         terminal_threshold (float): 종료 판단을 위한 점수 임계값 (기본: 4.0)
-        cost_lambda (float): LLM 비용(USD)에 대한 보상 페널티 가중치 (기본: 1.0)
+        cost_lambda (float): LLM 비용(USD)에 대한 보상 페널티 가중치 (기본: 1.0, qwen 8b: 0.028$, gemma 3: 0.07$)
         repeat_penalty (float): 동일 액션을 반복해서 수행할 때 부여하는 페널티 (기본: 0.3)
     """
 
@@ -39,19 +39,20 @@ class EditingEnv:
         cost_lambda: float = 1.0,
         repeat_penalty: float = 0.3,  # 같은 액션 반복 사용 시 패널티
         editor_model: str = "google/gemma-3-27b-it",
-        use_offline_reward: bool = True,
+        base_cost: float = 0.02,
+        step_penalty: float = 0.1,  # step 하나 당 패널티
     ):
         self.dataloader = dataloader
         self.documents, self.doc_idxes = self._load_data()
         self.max_steps = max_steps
         # self.available_documents = list(self.documents)
         self.available_doc_idxes = self.doc_idxes.copy()
-        self.editor = DocumentEditor(editor_model)
+        self.editor = DocumentEditor(editor_model, base_cost)
         self.judge = DocumentJudge()
         self.terminal_threshold = terminal_threshold
         self.cost_lambda = cost_lambda
         self.repeat_penalty = repeat_penalty
-        self.use_offline_reward = use_offline_reward
+        self.step_penalty = step_penalty
 
         self.actions = Action.as_list()
         self.num_actions = len(self.actions)
@@ -166,7 +167,7 @@ class EditingEnv:
         self.current_step += 1
 
         # LLM 실제 비용 (달러 기준)
-        usd_cost = cost_info.get("usd_cost", self.editor.base_cost)
+        used_cost = cost_info.get("used_cost", self.editor.base_cost)
         total_tokens = cost_info.get("total_tokens", None)
 
         # 2) 문서 평가 호출 후 점수 업데이트
@@ -203,9 +204,13 @@ class EditingEnv:
 
         # LLM 호출 비용 패널티 (달러 기준)
         # 예: cost_lambda=10.0 이면 0.01달러 사용 시 -0.1 패널티
-        step_reward -= self.cost_lambda * usd_cost
+        step_reward -= self.cost_lambda * used_cost
 
         reward = step_reward
+
+        # step별 비용 증가
+        step_cost_multiplier = self.current_step * self.step_penalty
+        reward -= step_cost_multiplier
 
         # 같은 액션 반복 패널티 (에피소드 내 중복 사용 시 패널티)
         repeat_penalty_applied = False
@@ -226,7 +231,7 @@ class EditingEnv:
         info["new_scores"] = new_scores
         info["combined_delta"] = combined_delta
         info["repeat_penalty"] = repeat_penalty_applied
-        info["llm_cost_usd"] = usd_cost
+        info["llm_cost_usd"] = used_cost
         info["llm_total_tokens"] = total_tokens
 
         # 마지막에 사용한 액션 업데이트

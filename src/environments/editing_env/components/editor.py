@@ -17,18 +17,24 @@ class DocumentEditor:
     입력된 문서와 행동을 토대로 편집하는 클래스
 
     NOTE: 한정된 자원과 보안 등을 고려하여 오픈소스 소형 LM을 활용하는 시나리오
+
+    NOTE: 일단 모델에 대한 정보는 수동으로 기입
+
+    base_cost는 정보가 없을 경우 기본으로 사용하는 값
+    price_per_1m_tokens는 실제 input 가격 (현재는 input만 추후 output 도 고려?)
+
     """
 
     def __init__(
         self,
         model: str = "google/gemma-3-27b-it",
         base_cost: float = 0.02,
-        price_per_1k_tokens: float = 0.00015,
+        price_per_1m_tokens: float = 0.028,
     ):
         self.model = model
         # 보상에서 사용할 LLM 호출 패널티
         self.base_cost = base_cost
-        self.price_per_1k_tokens = price_per_1k_tokens
+        self.price_per_1m_tokens = price_per_1m_tokens
 
     def _system_prompt(self):
         return """당신은 한국어 글을 요청에 맞게 편집하는 글쓰기 보조 도우미입니다.
@@ -109,7 +115,7 @@ class DocumentEditor:
         실제 LLM을 호출하여 문서를 편집.
         - text: 현재 문서 (string)
         - action: 편집 액션 이름
-        - 반환: (편집된 텍스트, {"usd_cost": ..., "total_tokens": ...})
+        - 반환: (편집된 텍스트, {"used_cost": ..., "total_tokens": ...})
         """
         response = client.chat.completions.create(
             model=self.model,
@@ -135,14 +141,14 @@ class DocumentEditor:
                 total_tokens = getattr(usage, "prompt_tokens", 0) + getattr(
                     usage, "completion_tokens", 0
                 )
-            usd_cost = (total_tokens / 1000.0) * self.price_per_1k_tokens
+            used_cost = (total_tokens / 1000000.0) * self.price_per_1m_tokens
         else:
             # usage 정보가 없으면 기본값 사용
             total_tokens = None
-            usd_cost = self.base_cost
+            used_cost = self.base_cost
 
         cost_info = {
-            "usd_cost": float(usd_cost),
+            "used_cost": float(used_cost),
             "total_tokens": float(total_tokens) if total_tokens is not None else None,
         }
         return edited_text, cost_info
@@ -231,9 +237,9 @@ class OfflineSingleDocEditor:
         cost_info = response.get("cost_info", {})
         if not cost_info:
             log.warning(
-                f"비용 정보가 없어, 기본 값인 usd_cost={self.base_cost}, total_tokens={self.base_token}으로 설정합니다."
+                f"비용 정보가 없어, 기본 값인 used_cost={self.base_cost}, total_tokens={self.base_token}으로 설정합니다."
             )
             log.debug(response)
-            cost_info = {"usd_cost": self.base_cost, "total_tokens": self.base_token}
+            cost_info = {"used_cost": self.base_cost, "total_tokens": self.base_token}
 
         return edited_text, cost_info

@@ -25,11 +25,17 @@ from utils.logger_factory import log
 # 재현을 위한 seed 설정
 SEED = 42
 
-# parameters for environment
+# ========== parameters for environment ==========
 TERMINAL_THRESHOLD = 9.5  # 문서의 종합 품질 점수에 따라 종료할 한계점
 REPEAT_PENALTY = 0.2  # 반복 액션에 대한 패널티 정도
 # EDITOR_MODEL = "google/gemma-3-27b-it"  # 액션에 대한 LLM(or SLM)
 EDITOR_MODEL = "qwen/qwen3-8b"  # 조금 더 성능이 좋지 않은 모델로 실험하기 위함
+
+# 학습 시 LLM 비용에 대한 가중치로, COST_LAMBDA만큼 step마다 사용한 실제 비용에 곱하여 패널티 부과
+# NOTE: 현재 LLM 비용 패널티는 고정해두었으니 튜닝하지 말 것
+COST_LAMBDA = 1.0
+
+STEP_PENLTY = 0.1  # step 하나 당 패널티 (ex) reward -= 2step * 패널티)
 
 # JSONL_PATH = DATA_DIR / "paper_data" / "sequences_20251128_014521_tmp.jsonl"
 JSONL_PATH = DATA_DIR / "paper_data" / "offline" / "sequences_20251128_014521_tmp.jsonl"
@@ -38,7 +44,7 @@ USE_SINGLE_SEQUENCE = True  # 오버피팅 모드 (첫 번째 시퀀스만 사�
 USE_LLM_JUDGE = False  # False면 rule-based evaluator 사용
 USE_OFFLINE_REWARD = True  # offline_ppo.py 스타일 보상 함수 사용
 
-# parameters for train
+# ========== parameters for train ==========
 CHECKPOINT_DIR = None  # 학습 재개를 위한 설정 (저장된 체크포인트 디렉토리 경로)
 SAVE_CHECKPOINT_DIR = LOGS_DIR / "checkpoints"
 CHECKPOINT_INTERVAL = 1
@@ -63,11 +69,10 @@ def main():
         jsonl_path=JSONL_PATH,  # jsonl_path 명시적 전달
         max_steps=3,
         terminal_threshold=TERMINAL_THRESHOLD,  # 추가 (호환성)
-        cost_lambda=0.5,  # 비용 패널티 감소 (학습 용이)
+        cost_lambda=COST_LAMBDA,
         repeat_penalty=REPEAT_PENALTY,  # 반복 패널티 감소
         editor_model=EDITOR_MODEL,  # 기존 설정 유지
         use_single_sequence=True,  # 오버피팅 모드 ON
-        use_offline_reward=True,
     )
 
     # 평가 지표 (state)의 개수

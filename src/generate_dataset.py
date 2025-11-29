@@ -169,7 +169,7 @@ def build_all_sequences_for_first_doc(output_path: Path):
                 # 필요하다면 return prefix_record 등으로 우회 가능
                 raise
 
-            usd_cost = float(cost_info.get("usd_cost") or 0.0)
+            used_cost = float(cost_info.get("used_cost") or 0.0)
 
             # prefix의 step 뒤에 새 step 하나 추가
             new_step_idx = len(steps_before) + 1
@@ -182,7 +182,7 @@ def build_all_sequences_for_first_doc(output_path: Path):
             }
 
             steps = steps_before + [new_step]
-            total_cost = total_cost_before + usd_cost
+            total_cost = total_cost_before + used_cost
 
             record: Dict[str, Any] = {
                 "sequence_id": next_sequence_id,

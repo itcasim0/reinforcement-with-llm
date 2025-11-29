@@ -384,15 +384,15 @@ class OfflineEditingEnv:
             if steps:
                 last_step = steps[-1]
                 self.current_text = last_step.get("output_text", self.current_text)
-                cost_info = last_step.get("cost_info", {"usd_cost": 0.02, "total_tokens": 2000})
+                cost_info = last_step.get("cost_info", {"used_cost": 0.02, "total_tokens": 2000})
             else:
                 # steps가 없으면 final_text 사용
                 self.current_text = result.get("final_text", self.current_text)
-                cost_info = {"usd_cost": 0.02, "total_tokens": 2000}
+                cost_info = {"used_cost": 0.02, "total_tokens": 2000}
         else:
             # 데이터에 없는 경우: 텍스트 유지 + 높은 비용
             log.info(f"[경고] action sequence {actions_tuple}를 찾을 수 없음")
-            cost_info = {"usd_cost": 0.05, "total_tokens": 5000}
+            cost_info = {"used_cost": 0.05, "total_tokens": 5000}
         
         # 새로운 점수 계산
         new_scores = self.evaluator.evaluate(self.current_text)
@@ -409,7 +409,7 @@ class OfflineEditingEnv:
             reward = score_delta * 1.0  # 부정적 변화는 그대로
         
         # 3) LLM 비용 패널티 (step이 진행될수록 비용 증가)
-        usd_cost = cost_info.get("usd_cost", 0.02)
+        used_cost = cost_info.get("used_cost", 0.02)
         step_cost_multiplier = 1.0 + (self.current_step * 0.15)  # step마다 15% 증가
         reward -= self.cost_lambda * usd_cost * step_cost_multiplier
         
@@ -431,7 +431,7 @@ class OfflineEditingEnv:
         
         info["new_scores"] = new_scores
         info["score_delta"] = score_delta
-        info["llm_cost_usd"] = usd_cost
+        info["llm_cost_usd"] = used_cost
         
         next_state = self._scores_to_state(new_scores)
         return next_state, reward, done, info
