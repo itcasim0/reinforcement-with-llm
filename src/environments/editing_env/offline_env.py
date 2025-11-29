@@ -63,13 +63,13 @@ class OfflineEditingEnv(EditingEnv):
     def step(
         self, action_index: int
     ) -> Tuple[Tuple[float, float, float, float], float, bool, Dict]:
-        """
-        환경 step 실행 (offline_ppo.py 방식)
-        """
         assert 0 <= action_index < self.num_actions
         action = self.actions[action_index]
+        self.action_history.append(action)
 
         prev_scores = self.current_score
+        prev_overall = prev_scores.overall
+
         done = False
         info = {
             "action": action,
@@ -90,7 +90,7 @@ class OfflineEditingEnv(EditingEnv):
             return next_state, reward, done, info
 
         # 액션 추가 (stop이 아닌 경우)
-        self.action_history.append(action)
+
         self.current_step += 1
 
         # 오프라인 편집 수행
@@ -107,8 +107,7 @@ class OfflineEditingEnv(EditingEnv):
 
         # 보상 계산
         if self.use_offline_reward:
-            # offline_ppo.py 스타일 보상
-            score_delta = new_scores.overall - prev_scores.overall
+            score_delta = new_scores.overall - prev_overall
 
             if score_delta > 0:
                 reward = score_delta * 3.0  # 긍정적 변화 강화
@@ -127,7 +126,7 @@ class OfflineEditingEnv(EditingEnv):
             d_academic = new_scores.academic_style - prev_scores.academic_style
             d_density = new_scores.information_density - prev_scores.information_density
             d_clarity = new_scores.clarity - prev_scores.clarity
-            do = new_scores.overall - prev_scores.overall
+            do = new_scores.overall - prev_overall
 
             d_structure /= 2.0
             d_length /= 2.0

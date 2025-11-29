@@ -17,18 +17,15 @@ from utils.logger_factory import log
 
 from .policy import PPOPolicy
 
+
 class PPORunner:
     """
     - 환경에서 rollout 수집
     - PPO loss 계산 및 업데이트
 
-    관측 벡터(obs) 구성:
-      [ g/5, r/5, c/5, o/5, step_norm, one_hot(last_action, num_actions) ]
-
     Args:
         env (EditingEnv): 강화학습 환경 (문서 편집 환경)
         max_steps (int): 에피소드당 최대 스텝 수
-        state_dim (int): 상태 벡터의 차원 (= 4(점수) + 1(step_norm) + num_actions(이전 액션 one-hot))
         num_actions (int): 가능한 액션의 개수 (편집 작업 종류)
         gamma (float): 할인율 (discount factor) - 미래 보상의 가중치. 기본값 0.95
         lr (float): 학습률 (learning rate) - 옵티마이저의 스텝 크기. 기본값 3e-4

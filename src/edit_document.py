@@ -15,7 +15,7 @@ import torch
 # internal
 from dataloader.reconstruct_loader import DomesticReconstructDataLoader
 from environments.editing_env.base_env import EditingEnv
-from methods.ppo import PPORunner
+from methods.ppo.runner import PPORunner
 
 from config.paths import LOGS_DIR
 from utils.logger_factory import log

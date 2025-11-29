@@ -1,10 +1,15 @@
 from typing import Dict, Tuple, List
 
+# external
+from openai import OpenAI
+
 # internal
 from llm.core import client
 from utils.logger_factory import log
 
 from .data import DocOfflineData
+
+client: OpenAI = client
 
 
 class DocumentEditor:
