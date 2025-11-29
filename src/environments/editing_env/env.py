@@ -7,7 +7,6 @@ from utils.logger_factory import log
 
 from .components.component import Document, DocumentJudge, DocumentScore, Action
 from .components.editor import DocumentEditor, OfflineSingleDocEditor
-from .eval.strict_evaluator import StrictEvaluator
 
 
 class EditingEnv:
@@ -91,15 +90,25 @@ class EditingEnv:
 
     def _scores_to_state(
         self, scores: DocumentScore
-    ) -> Tuple[float, float, float, float]:
+    ) -> Tuple[float, float, float, float, float, float]:
         """
         점수를 그대로 float로 유지해서 상태로 사용.
         (예: 2.3, 2.7 같은 차이도 살려서 PPO에 전달)
+
+        새로운 5가지 평가 기준 + overall:
+        - structure: 구조적 완성도
+        - length: 문장 길이 점수
+        - academic_style: 학술적 형식 점수
+        - information_density: 정보 밀도 점수
+        - clarity: 명확성 점수
+        - overall: 전체 점수
         """
         return (
-            scores.grammar,
-            scores.readability,
-            scores.coherence,
+            scores.structure,
+            scores.length,
+            scores.academic_style,
+            scores.information_density,
+            scores.clarity,
             scores.overall,
         )
 
@@ -156,20 +165,26 @@ class EditingEnv:
         self.current_score = new_scores
         new_overall = new_scores.overall
 
-        # --- (1) 각 항목별 변화량 계산 ---
-        dg = new_scores.grammar - prev_scores.grammar
-        dr = new_scores.readability - prev_scores.readability
-        dc = new_scores.coherence - prev_scores.coherence
+        # --- (1) 각 항목별 변화량 계산 (5가지 평가 기준) ---
+        d_structure = new_scores.structure - prev_scores.structure
+        d_length = new_scores.length - prev_scores.length
+        d_academic = new_scores.academic_style - prev_scores.academic_style
+        d_density = new_scores.information_density - prev_scores.information_density
+        d_clarity = new_scores.clarity - prev_scores.clarity
         do = new_overall - prev_overall
 
         # --- (2) 10점 스케일 → 변화량 살짝 줄이기 ---
-        dg /= 2.0
-        dr /= 2.0
-        dc /= 2.0
+        d_structure /= 2.0
+        d_length /= 2.0
+        d_academic /= 2.0
+        d_density /= 2.0
+        d_clarity /= 2.0
         do /= 2.0
 
-        # 4개 항목 평균 (equal weight)
-        combined_delta = (dg + dr + dc + do) / 4.0
+        # 6개 항목 평균 (equal weight)
+        combined_delta = (
+            d_structure + d_length + d_academic + d_density + d_clarity + do
+        ) / 6.0
 
         # --- (3) step 보상 계산 ---
         if combined_delta >= 0:
@@ -213,54 +228,43 @@ class EditingEnv:
 
     def _terminal_reward(self, scores: DocumentScore) -> float:
         """
-        에피소드 종료 시 추가 보상 (4개 점수 평균 기반):
+        에피소드 종료 시 추가 보상 (6개 점수 평균 기반):
 
-        - scores: "grammar", "readability", "coherence", "overall" (0~10)
+        - scores: 5가지 평가 기준 + overall (0~10)
         - 평균 점수(avg_score)를 0~10 → -1 ~ +1로 스케일링
 
           예) avg=3.0 → (3 - 5) / 5 = -0.4
               avg=5.0 →  0.0
               avg=7.5 → +0.5
         """
-        g = scores.grammar
-        r = scores.readability
-        c = scores.coherence
+        s = scores.structure
+        l = scores.length
+        a = scores.academic_style
+        d = scores.information_density
+        c = scores.clarity
         o = scores.overall
 
-        avg_score = (g + r + c + o) / 4.0  # 0~10
+        avg_score = (s + l + a + d + c + o) / 6.0  # 0~10
         # 0~10 → -1 ~ +1
         return (avg_score - 5.0) / 5.0
 
 
-# class OfflineEditingEnv(EditingEnv):
-
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-
-#         self.editor = OfflineSingleDocEditor()
-
-#     @override
-#     def _edit(self, _):
-#         return self.editor.edit(self.action_history)
-
-
 class OfflineEditingEnv(EditingEnv):
-    """
-    오프라인 환경 - offline_ppo.py와 동일하게 동작
 
-    기존 틀 유지:
-    - __init__에서 *args, **kwargs 받기
-    - super().__init__ 호출
-    - _edit override
-    - _load_data 메서드
-    """
-
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self,
+        jsonl_path=None,
+        use_single_sequence=True,
+        use_llm_judge=False,
+        use_offline_reward=True,
+        *args,
+        **kwargs,
+    ):
         # kwargs에서 오프라인 전용 파라미터 추출
-        self.jsonl_path = kwargs.pop("jsonl_path", None)
-        self.use_single_sequence = kwargs.pop("use_single_sequence", True)
-        self.use_llm_judge = kwargs.pop("use_llm_judge", False)
-        self.use_offline_reward = kwargs.pop("use_offline_reward", True)
+        self.jsonl_path = jsonl_path
+        self.use_single_sequence = use_single_sequence
+        self.use_llm_judge = use_llm_judge
+        self.use_offline_reward = use_offline_reward
 
         # jsonl_path가 없으면 에러
         if self.jsonl_path is None:
@@ -279,8 +283,6 @@ class OfflineEditingEnv(EditingEnv):
         self.all_sequences = []
         self.action_index = {}
         self._load_data()
-
-        self.judge = StrictEvaluator()
 
         # 오버피팅 모드 설정
         self.fixed_sequence_idx = 0
@@ -324,7 +326,7 @@ class OfflineEditingEnv(EditingEnv):
         self.current_text = self.base_text
 
         # 초기 점수 계산
-        self.current_score = self.judge.evaluate(self.current_text)
+        self.current_score = self.judge.score(self.current_text)
         state = self._scores_to_state(self.current_score)
 
         return state, self.current_text
@@ -420,18 +422,24 @@ class OfflineEditingEnv(EditingEnv):
 
             info["score_delta"] = score_delta
         else:
-            # 기존 방식 보상
-            dg = new_scores.grammar - prev_scores.grammar
-            dr = new_scores.readability - prev_scores.readability
-            dc = new_scores.coherence - prev_scores.coherence
+            # 기존 방식 보상 (5가지 평가 기준)
+            d_structure = new_scores.structure - prev_scores.structure
+            d_length = new_scores.length - prev_scores.length
+            d_academic = new_scores.academic_style - prev_scores.academic_style
+            d_density = new_scores.information_density - prev_scores.information_density
+            d_clarity = new_scores.clarity - prev_scores.clarity
             do = new_scores.overall - prev_scores.overall
 
-            dg /= 2.0
-            dr /= 2.0
-            dc /= 2.0
+            d_structure /= 2.0
+            d_length /= 2.0
+            d_academic /= 2.0
+            d_density /= 2.0
+            d_clarity /= 2.0
             do /= 2.0
 
-            combined_delta = (dg + dr + dc + do) / 4.0
+            combined_delta = (
+                d_structure + d_length + d_academic + d_density + d_clarity + do
+            ) / 6.0
 
             if combined_delta >= 0:
                 reward = combined_delta
