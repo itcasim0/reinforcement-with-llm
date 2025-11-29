@@ -4,7 +4,8 @@ from typing import Dict, Tuple, List
 from llm.core import client
 from utils.logger_factory import log
 
-from .data import SingleDocOfflineData
+from .data import DocOfflineData
+
 
 class DocumentEditor:
     """
@@ -204,7 +205,7 @@ class DocumentEditor:
 
 class OfflineSingleDocEditor:
     def __init__(self, jsonl_path, base_cost: float = 0.02):
-        self.data = SingleDocOfflineData(jsonl_path)
+        self.data = DocOfflineData(jsonl_path)
         self.base_cost = base_cost
         self.base_token = 2000
 
@@ -231,5 +232,3 @@ class OfflineSingleDocEditor:
             cost_info = {"usd_cost": self.base_cost, "total_tokens": self.base_token}
 
         return edited_text, cost_info
-
-

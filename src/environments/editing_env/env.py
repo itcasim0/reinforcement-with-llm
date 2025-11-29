@@ -5,8 +5,10 @@ from typing import override
 
 from utils.logger_factory import log
 
+from dataloader.reconstruct_loader import ReconstructDataLoader
 from .components.component import Document, DocumentJudge, DocumentScore, Action
 from .components.editor import DocumentEditor, OfflineSingleDocEditor
+from .components.data import DocOfflineData
 
 
 class EditingEnv:
@@ -32,22 +34,26 @@ class EditingEnv:
 
     def __init__(
         self,
-        documents: List[Document],
+        dataloader: ReconstructDataLoader | DocOfflineData,
         max_steps: 3,
         # TODO: terminal_threshold 적용될 수 있도록 코드 수정하기
         terminal_threshold: float = 9.5,
         cost_lambda: float = 1.0,
         repeat_penalty: float = 0.3,  # 같은 액션 반복 사용 시 패널티
         editor_model: str = "google/gemma-3-27b-it",
+        use_offline_reward: bool = True,
     ):
-        self.documents = documents
+        self.dataloader = dataloader
+        self.documents, self.doc_idxes = self._load_data()
         self.max_steps = max_steps
-        self.available_documents = list(self.documents)
+        # self.available_documents = list(self.documents)
+        self.available_doc_idxes = self.doc_idxes.copy()
         self.editor = DocumentEditor(editor_model)
         self.judge = DocumentJudge()
         self.terminal_threshold = terminal_threshold
         self.cost_lambda = cost_lambda
         self.repeat_penalty = repeat_penalty
+        self.use_offline_reward = use_offline_reward
 
         self.actions = Action.as_list()
         self.num_actions = len(self.actions)
@@ -63,24 +69,29 @@ class EditingEnv:
         # step마다 사용된 action을 기록하기 위함
         self.action_history = []
 
-    def reset(self) -> Tuple[Tuple[int, int, int, int], str]:
+    def _load_data(self):
+        documents = self.dataloader.get_reconstructed_text(max_docs=5)
+        return documents, [i for i in range(len(documents))]
+
+    def reset(self):
         """
         에피소드 초기화
         - 랜덤 문서를 하나 선택 (비복원 추출 후 모두 추출하였다면 다시 리셋)
         - 평가 클래스를 통해 초기 문서 품질 점수 계산
-        - 상태 (g, r, c, o)와 현재 텍스트 반환
         """
         self.current_step = 0
         self.used_actions = set()  # 에피소드 시작할 때 사용한 액션 기록 초기화
         self.action_history = []  # step마다 사용된 action을 기록하기 위함
 
         # 비복원 추출: 리스트가 비었으면 다시 채움
-        if not self.available_documents:
-            self.available_documents = list(self.documents)
+        if not self.available_doc_idxes:
+            self.available_doc_idxes = self.doc_idxes.copy()
 
         # 무작위 인덱스 선택 후 pop
-        rand_idx = random.randrange(len(self.available_documents))
-        base_doc = self.available_documents.pop(rand_idx)
+        picked = self.available_doc_idxes.pop(
+            random.randrange(len(self.available_doc_idxes))
+        )
+        base_doc = self.documents[picked]
 
         self.current_text = base_doc.text
 
@@ -253,83 +264,45 @@ class OfflineEditingEnv(EditingEnv):
 
     def __init__(
         self,
+        dataloader: DocOfflineData = DocOfflineData(),
         jsonl_path=None,
         use_single_sequence=True,
-        use_llm_judge=False,
-        use_offline_reward=True,
+        fixed_sequence_idx=0,
         *args,
         **kwargs,
     ):
-        # kwargs에서 오프라인 전용 파라미터 추출
-        self.jsonl_path = jsonl_path
-        self.use_single_sequence = use_single_sequence
-        self.use_llm_judge = use_llm_judge
-        self.use_offline_reward = use_offline_reward
+        super().__init__(dataloader=dataloader, *args, **kwargs)
 
         # jsonl_path가 없으면 에러
-        if self.jsonl_path is None:
+        if jsonl_path is None:
             raise ValueError("OfflineEditingEnv requires 'jsonl_path' parameter")
 
-        # 더미 documents로 부모 클래스 초기화
-        if "documents" not in kwargs or not kwargs.get("documents"):
-            kwargs["documents"] = []
+        if use_single_sequence:
+            self.documents = [self.documents[fixed_sequence_idx]]
 
-        super().__init__(*args, **kwargs)
+        self.jsonl_path = jsonl_path
+
+        self.use_single_sequence = use_single_sequence
+        # 오프라인 데이터 로드
+        self.all_sequences = dataloader.sequences
+
+        # 오버피팅 모드 설정
+        self.fixed_sequence_idx = fixed_sequence_idx
 
         # OfflineSingleDocEditor로 교체
         self.editor = OfflineSingleDocEditor(self.jsonl_path)
 
-        # 오프라인 데이터 로드
-        self.all_sequences = []
-        self.action_index = {}
-        self._load_data()
-
-        # 오버피팅 모드 설정
-        self.fixed_sequence_idx = 0
         self.base_text = ""
 
-    def _load_data(self):
-        """JSONL 데이터 로드 및 인덱싱 (offline_ppo.py와 동일)"""
-        import json
-
-        self.all_sequences = []
-        self.action_index = {}
-
-        with open(self.jsonl_path, "r", encoding="utf-8") as f:
-            for line in f:
-                if line.strip():
-                    record = json.loads(line)
-                    self.all_sequences.append(record)
-                    actions_tuple = tuple(record["actions"])
-                    self.action_index[actions_tuple] = record
-
-        log.info(f"[데이터 로드] 총 {len(self.all_sequences)}개 시퀀스")
-
     @override
-    def reset(self) -> Tuple[Tuple[float, float, float, float], str]:
-        """
-        에피소드 초기화 (offline_ppo.py 방식)
-        - use_single_sequence=True: 항상 첫 번째 시퀀스
-        - use_single_sequence=False: 랜덤 선택
-        """
-        self.current_step = 0
-        self.action_history = []
-        self.used_actions = set()
+    def _load_data(self):
+        doc_idxes = [i for i in range(self.dataloader.total_docs)]
 
-        # 오버피팅 모드
-        if self.use_single_sequence:
-            seq = self.all_sequences[self.fixed_sequence_idx]
-        else:
-            seq = self.all_sequences[random.randint(0, len(self.all_sequences) - 1)]
+        documents = []
+        for i in doc_idxes:
+            documents.append(Document(self.dataloader.get_by_index(i)["base_text"]))
 
-        self.base_text = seq["base_text"]
-        self.current_text = self.base_text
-
-        # 초기 점수 계산
-        self.current_score = self.judge.score(self.current_text)
-        state = self._scores_to_state(self.current_score)
-
-        return state, self.current_text
+        return documents, doc_idxes
 
     @override
     def _edit(self, _):

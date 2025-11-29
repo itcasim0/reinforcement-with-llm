@@ -5,7 +5,7 @@ from dataclasses import asdict
 from environments.editing_env.env import StrictEvaluator
 
 from environments.editing_env.eval.evaluator import AbstractQualityEvaluator
-from environments.editing_env.components.data import SingleDocOfflineData
+from environments.editing_env.components.data import DocOfflineData
 
 from utils.logger_factory import log
 
@@ -35,7 +35,7 @@ def main():
 
     SEQUENCE_IDX = 70
 
-    data = SingleDocOfflineData()
+    data = DocOfflineData()
     sequences = data.sequences
     base_text = sequences[SEQUENCE_IDX - 1]["base_text"]
 

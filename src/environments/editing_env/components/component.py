@@ -1,9 +1,6 @@
-from typing import Dict, Tuple
 from dataclasses import dataclass, fields
-import json
 
 # internal
-from llm.core import client
 from environments.editing_env.eval.evaluator import AbstractQualityEvaluator
 
 
@@ -21,7 +18,7 @@ class DocumentScore:
     """
     문서 점수 클래스
 
-    각 점수는 0~10의 값을 가짐
+    각 점수는 0~10의 값을 가지며, 기본 값은 중간인 5.0을 부여
     """
 
     structure: float = 5.0  # 구조적 완성도
@@ -46,34 +43,12 @@ class Action:
         return [getattr(cls, f.name) for f in fields(cls)]
 
 
-@dataclass
-class AbstractScore:
-    """
-    Abstract 점수 클래스 (주석 처리용)
-    각 점수는 0~10의 값을 가짐
-
-    NOTE: score_abstract()를 활성화할 때 사용
-    """
-
-    structure: float = 5.0  # 구조적 완성도
-    length: float = 5.0  # 길이 적절성
-    academic: float = 5.0  # 학술적 스타일
-    density: float = 5.0  # 정보 밀도
-    clarity: float = 5.0  # 명확성
-    coherence: float = 5.0  # 일관성
-    overall: float = 5.0  # 전체 점수
-    grade: str = "C (Acceptable)"  # 등급
-
 class DocumentJudge:
     """입력된 문서의 품질을 평가하는 클래스"""
 
     def __init__(self):
 
         self.abstract_evaluator = AbstractQualityEvaluator(language="ko")
-
-    # ================================================================
-    # 아이디어 낸 평가 방법 (주석 처리 필요시 활성화)
-    # ================================================================
 
     def score(self, document) -> DocumentScore:
         """
@@ -106,11 +81,13 @@ class DocumentJudge:
         # AbstractQualityEvaluator 호출
         result = self.abstract_evaluator.evaluate_abstract(text)
 
-        # 0~1 스케일을 0~10으로 변환
+        # 0~1점 스케일을 0~10점으로 변환
         structure = result["structure"]["structure_completeness"] * 10.0
         length = result["length"]["overall_length_score"] * 10.0
         academic_style = result["academic_style"]["academic_style_score"] * 10.0
-        information_density = result["information_density"]["information_density_score"] * 10.0
+        information_density = (
+            result["information_density"]["information_density_score"] * 10.0
+        )
         clarity = result["clarity"]["clarity_score"] * 10.0
         overall = result["overall_score"] * 10.0
 

@@ -1,9 +1,11 @@
 from typing import List
 
+# internal
 from config.paths import DATA_DIR
 
 from environments.editing_env.components.component import Document
 
+from utils.logger_factory import log
 from utils.util import load_json
 
 
@@ -90,6 +92,7 @@ class ReconstructDataLoader:
 
         return reconstructed_texts
 
+
 class NoiseDataLoader:
     def __init__(self):
         """
@@ -103,7 +106,7 @@ class NoiseDataLoader:
             / "noise"
             / "paper_abstract_with_noise_20251125_002418.json"
         )
-    
+
     def get_noise_text(self, max_docs=float("inf")) -> List[Document]:
 
         noise_texts = []
@@ -123,6 +126,7 @@ class NoiseDataLoader:
             log.info(f"[WARN] Error reading {self.data_path}: {e}")
 
         return noise_texts
+
 
 if __name__ == "__main__":
     # Example usage

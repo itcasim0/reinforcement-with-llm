@@ -45,12 +45,11 @@ def main():
     # load data
     log.info("데이터 로드")
     dataloader = DomesticReconstructDataLoader()
-    documents = dataloader.get_reconstructed_text(max_docs=5)
 
     # 강화학습 환경 구성
     log.info("강화학습 환경 구성")
     env = EditingEnv(
-        documents=documents,
+        dataloader=dataloader,
         max_steps=3,
         terminal_threshold=TERMINAL_THRESHOLD,
         cost_lambda=1.0,
