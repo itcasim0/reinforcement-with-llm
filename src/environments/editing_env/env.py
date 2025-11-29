@@ -239,10 +239,13 @@ class EditingEnv:
 
     def _terminal_reward(self, scores: DocumentScore) -> float:
         """
-        에피소드 종료 시 추가 보상 (6개 점수 평균 기반):
+        에피소드 종료 시 추가 보상 (평가 지표 점수 평균 기반):
 
         - scores: 5가지 평가 기준 + overall (0~10)
         - 평균 점수(avg_score)를 0~10 → -1 ~ +1로 스케일링
+        - 기본 값이 5인데, 평균이 5보다 이하일 경우 올바른 선택을 하지 못하였기에 마이너스
+        - 평균이 5보다 클경우에는 비교적 올바른 선택을 했기 때문에 플러스
+        - 만점은 1, 최하는 -1을 최종 reward로 제공하기 위함
 
           예) avg=3.0 → (3 - 5) / 5 = -0.4
               avg=5.0 →  0.0
@@ -253,9 +256,8 @@ class EditingEnv:
         a = scores.academic_style
         d = scores.information_density
         c = scores.clarity
-        o = scores.overall
 
-        avg_score = (s + l + a + d + c + o) / 6.0  # 0~10
+        avg_score = (s + l + a + d + c) / 5.0  # 0~10
         # 0~10 → -1 ~ +1
         return (avg_score - 5.0) / 5.0
 
@@ -331,26 +333,8 @@ class OfflineEditingEnv(EditingEnv):
 
         # stop_editing: 종료
         if action == "stop_editing":
-            if self.use_offline_reward:
-                # offline_ppo.py 스타일 stop 보상
-                current_quality = (prev_scores.overall - 5.0) / 5.0
-
-                if prev_scores.overall >= 7.0:
-                    stop_bonus = 2.0
-                elif prev_scores.overall >= 6.5:
-                    stop_bonus = 1.0
-                elif prev_scores.overall >= 6.0:
-                    stop_bonus = 0.3
-                elif prev_scores.overall >= 5.5:
-                    stop_bonus = 0.0
-                else:
-                    stop_bonus = -1.0
-
-                reward = current_quality + stop_bonus
-                info["stop_bonus"] = stop_bonus
-            else:
-                # 기존 방식
-                reward = self._terminal_reward(prev_scores)
+            # 기존 방식
+            reward = self._terminal_reward(prev_scores)
 
             done = True
             info["reason"] = "stop_action"
