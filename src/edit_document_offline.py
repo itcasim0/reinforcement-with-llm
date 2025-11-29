@@ -14,7 +14,7 @@ from dataclasses import fields
 import torch
 
 # internal
-from environments.editing_env.env import OfflineEditingEnv
+from environments.editing_env.base_env import OfflineEditingEnv
 from environments.editing_env.components.component import DocumentScore
 from environments.editing_env.components.data import DocOfflineData
 from methods.ppo import PPORunner

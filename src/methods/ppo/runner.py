@@ -2,41 +2,20 @@ from typing import Tuple
 from pathlib import Path
 import json
 
+# external
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Categorical
 
 # internal
-from environments.editing_env.env import EditingEnv, OfflineEditingEnv
+from environments.editing_env.base_env import EditingEnv
+from environments.editing_env.offline_env import OfflineEditingEnv
 
 from utils.util import today_datetime
 from utils.logger_factory import log
 
-
-class PPOPolicy(nn.Module):
-    """확장된 상태 벡터(obs) -> 정책(액션 분포) + 가치 V(s)"""
-
-    def __init__(self, state_dim: int, num_actions: int, hidden_dim: int = 64):
-        super().__init__()
-        self.base = nn.Sequential(
-            nn.Linear(state_dim, hidden_dim),
-            nn.Tanh(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.Tanh(),
-        )
-        self.actor = nn.Linear(hidden_dim, num_actions)
-        self.critic = nn.Linear(hidden_dim, 1)
-
-    def forward(self, obs: torch.Tensor):
-        """
-        obs: (batch, state_dim)
-        """
-        x = self.base(obs)
-        logits = self.actor(x)  # (batch, num_actions)
-        values = self.critic(x).squeeze(-1)  # (batch,)
-        return logits, values
-
+from .policy import PPOPolicy
 
 class PPORunner:
     """
@@ -59,7 +38,7 @@ class PPORunner:
 
     def __init__(
         self,
-        env: EditingEnv| OfflineEditingEnv,
+        env: EditingEnv | OfflineEditingEnv,
         max_steps: 3,
         state_dim: int,  # = 4 + 1 + num_actions
         num_actions: int,
@@ -111,7 +90,19 @@ class PPORunner:
         """
         structure, length, academic_style, information_density, clarity, overall = state
         base = (
-            torch.tensor([structure, length, academic_style, information_density, clarity, overall], dtype=torch.float32, device=self.device) / 10.0
+            torch.tensor(
+                [
+                    structure,
+                    length,
+                    academic_style,
+                    information_density,
+                    clarity,
+                    overall,
+                ],
+                dtype=torch.float32,
+                device=self.device,
+            )
+            / 10.0
         )
 
         # step_norm: 0 ~ 1
@@ -337,7 +328,7 @@ class PPORunner:
                     raise FileNotFoundError(
                         f"Best 체크포인트 참조 파일을 찾을 수 없습니다: {ptr_file}"
                     )
-                
+
                 # latest_checkpoint.txt가 없으면 가장 최근 파일 찾기
                 checkpoints = sorted(path.glob("checkpoint_ep*.pt"))
                 if not checkpoints:
@@ -360,7 +351,7 @@ class PPORunner:
         self.policy.load_state_dict(checkpoint["policy_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.start_episode = checkpoint["episode"]
-        
+
         # 최고 점수 복원
         if "best_score" in checkpoint:
             self.best_score = checkpoint["best_score"]
@@ -369,7 +360,9 @@ class PPORunner:
         self.checkpoint_session_dir = checkpoint_file.parent
         log.info(f"체크포인트 세션 디렉토리 설정: {self.checkpoint_session_dir}")
 
-        log.info(f"에피소드 {self.start_episode}부터 재개합니다. (best_score={self.best_score})")
+        log.info(
+            f"에피소드 {self.start_episode}부터 재개합니다. (best_score={self.best_score})"
+        )
 
         return self.start_episode
 
@@ -410,9 +403,9 @@ class PPORunner:
             # info 딕셔너리를 JSON 직렬화 가능하도록 변환
             info = traj["infos"][step_idx] if step_idx < len(traj["infos"]) else {}
             serializable_info = {}
-            
+
             for key, value in info.items():
-                if hasattr(value, '__dict__'):
+                if hasattr(value, "__dict__"):
                     # DocumentScore 같은 객체는 딕셔너리로 변환
                     serializable_info[key] = {
                         "structure": float(value.structure),
@@ -424,7 +417,7 @@ class PPORunner:
                     }
                 else:
                     serializable_info[key] = value
-            
+
             step_info = {
                 "step": step_idx,
                 "state": {
@@ -569,14 +562,14 @@ class PPORunner:
 
         log.info(f"\n[Eval] 최종 점수: {self.env.current_score}")
         log.info(f"선택된 액션 인덱스 시퀀스: {actions_taken}")
-    
+
     # -----------------------------
     # 정책 시각화
     # -----------------------------
     def show_policy(self):
         """학습된 정책의 액션 확률 분포 확인"""
         state, _ = self.env.reset()
-        
+
         log.info(f"\n현재 문서 점수:")
         log.info(f"  structure:           {state[0]:.2f}")
         log.info(f"  length:              {state[1]:.2f}")
@@ -584,12 +577,12 @@ class PPORunner:
         log.info(f"  information_density: {state[3]:.2f}")
         log.info(f"  clarity:             {state[4]:.2f}")
         log.info(f"  overall:             {state[5]:.2f}")
-        
+
         obs = self._build_obs(state, 0, -1)
         with torch.no_grad():
             logits, value = self.policy(obs.unsqueeze(0))
             probs = torch.softmax(logits, dim=-1).squeeze().cpu().numpy()
-        
+
         log.info(f"\nStep 1 액션 확률 (Value: {value.item():.3f}):")
         for action, prob in zip(self.env.actions, probs):
             bar = "*" * int(prob * 25)
