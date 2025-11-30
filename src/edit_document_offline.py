@@ -27,7 +27,7 @@ SEED = 42
 
 # ========== parameters for environment ==========
 TERMINAL_THRESHOLD = 9.5  # 문서의 종합 품질 점수에 따라 종료할 한계점
-REPEAT_PENALTY = 0.2  # 반복 액션에 대한 패널티 정도
+REPEAT_PENALTY = 0.5  # 반복 액션에 대한 패널티 정도
 # EDITOR_MODEL = "google/gemma-3-27b-it"  # 액션에 대한 LLM(or SLM)
 EDITOR_MODEL = "qwen/qwen3-8b"  # 조금 더 성능이 좋지 않은 모델로 실험하기 위함
 
@@ -61,7 +61,7 @@ torch.manual_seed(SEED)
 
 def main():
 
-    # 환경 정의
+    # ========== 환경 초기화 ==========
     log.info("강화 학습 환경 초기화 중...")
     dataloader = OfflineDocumentLoader(jsonl_path=JSONL_PATH)
     env = OfflineEditingEnv(
@@ -69,14 +69,14 @@ def main():
         max_steps=3,
         terminal_threshold=TERMINAL_THRESHOLD,  # 추가 (호환성)
         cost_lambda=COST_LAMBDA,
-        repeat_penalty=REPEAT_PENALTY,  # 반복 패널티 감소
+        repeat_penalty=REPEAT_PENALTY,  # 반복 액션에 대한 패널티
         editor_model=EDITOR_MODEL,  # 기존 설정 유지
         use_single_sequence=False,  # 하나의 데이터만 활용할 경우
         fixed_sequence_idx=0,  # use_single_sequence가 True일 경우, 몇 번째 index를 사용할 것인지
     )
 
-    # 평가 지표 (state)의 개수
-    len_scores = len(fields(DocumentScore))
+    # ========== 알고리즘 초기화 ==========
+    len_scores = len(fields(DocumentScore))  # 평가 지표 (state)의 개수
     runner = PPORunner(
         env=env,
         max_steps=3,
@@ -90,23 +90,27 @@ def main():
         K_epochs=4,
     )
 
-    log.info("[학습 전] 정책:")
-    runner.show_policy()
+    # ========== 학습 ==========
+    # TODO: 아래 show_policy를 evaluate_greedy()함수내에 넣었음.
+    # TODO: 대신, 학습 전의 policy 상태는 없으나, 여기서 꼭 봐야할까?
+    # log.info("[학습 전] 정책:")
+    # runner.show_policy()
 
     # 학습
+    log.info("학습 시작...")
     rewards = runner.train(
         num_episodes=NUM_EPISODES,
         log_interval=LOG_INTERVAL,
         checkpoint_dir=SAVE_CHECKPOINT_DIR,
     )
 
-    log.info("[학습 후] 정책:")
-    runner.show_policy()
+    # log.info("[학습 후] 정책:")
+    # runner.show_policy()
 
-    # 평가
-    runner.evaluate_greedy(max_steps=3)  # 평가 횟수 증가
+    # ========== 평가 ==========
+    runner.evaluate_greedy()
 
-    # 결과 요약
+    # ========== 학습 결과 요약 ==========
     log.info(f"\n{'='*60}")
     log.info("학습 결과 요약")
     log.info(f"{'='*60}")

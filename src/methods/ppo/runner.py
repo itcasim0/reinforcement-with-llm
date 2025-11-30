@@ -1,6 +1,7 @@
 from typing import Tuple
 from pathlib import Path
 import json
+from dataclasses import fields
 
 # external
 import torch
@@ -230,6 +231,12 @@ class PPORunner:
 
         returns, advantages = self.compute_gae(rewards, values, dones)
 
+        # 마지막 epoch의 loss 값들을 저장
+        final_actor_loss = 0.0
+        final_critic_loss = 0.0
+        final_entropy = 0.0
+        final_total_loss = 0.0
+
         for _ in range(self.K_epochs):
             logits, value_preds = self.policy(obs_t)
             dist = Categorical(logits=logits)
@@ -250,6 +257,19 @@ class PPORunner:
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
+
+            # 마지막 epoch의 loss 저장
+            final_actor_loss = actor_loss.item()
+            final_critic_loss = critic_loss.item()
+            final_entropy = entropy.item()
+            final_total_loss = loss.item()
+
+        return {
+            "actor_loss": final_actor_loss,
+            "critic_loss": final_critic_loss,
+            "entropy": final_entropy,
+            "total_loss": final_total_loss,
+        }
 
     # -----------------------------
     # 체크포인트 저장/로드
@@ -473,11 +493,6 @@ class PPORunner:
             ep_return = sum(traj["rewards"])
             reward_history.append(ep_return)
 
-            if ep % log_interval == 0:
-                log.info(
-                    f"[Episode {ep}] return = {ep_return:.3f}, len = {len(traj['rewards'])}"
-                )
-
             # 최고 점수 갱신 및 저장
             is_best = False
             if ep_return > self.best_score:
@@ -486,7 +501,14 @@ class PPORunner:
                 if checkpoint_dir:
                     self.save_checkpoint(checkpoint_dir, ep, is_best=True)
 
-            self.ppo_update(traj)
+            loss_info = self.ppo_update(traj)
+
+            if ep % log_interval == 0:
+                log.info(
+                    f"[Episode {ep}] return = {ep_return:.3f}, len = {len(traj['rewards'])}, "
+                    f"loss = {loss_info['total_loss']:.4f} "
+                    f"(actor: {loss_info['actor_loss']:.4f}, critic: {loss_info['critic_loss']:.4f}, entropy: {loss_info['entropy']:.4f})"
+                )
 
             # trajectory 정보 저장
             if checkpoint_dir and ep % trajectory_save_interval == 0:
@@ -507,22 +529,69 @@ class PPORunner:
     # -----------------------------
     # Greedy 평가
     # -----------------------------
-    def evaluate_greedy(self, max_steps: int = 3):
+    def evaluate_greedy(self, doc_index: int = None):
         """
         학습된 정책을 greedy로 평가:
         - 각 step에서 argmax(logits)로 행동 선택
+
+        Args:
+            doc_index: 평가할 문서의 인덱스 (None이면 환경의 기본 reset() 사용)
+
+        Returns:
+            dict: 평가 결과 정보 (최종 점수, 선택된 액션 등)
         """
-        state, text = self.env.reset()
-        log.info("\n[Eval] 초기 문서:")
-        log.info("-" * 60)
-        log.info(text)
-        log.info("-" * 60)
-        log.info(f"초기 점수: {self.env.current_score}")
+        # 문서 인덱스가 지정된 경우
+        if doc_index is not None:
+            # 문서 인덱스 유효성 검사
+            if doc_index < 0 or doc_index >= len(self.env.documents):
+                raise ValueError(
+                    f"유효하지 않은 문서 인덱스: {doc_index}. "
+                    f"유효 범위: 0 ~ {len(self.env.documents) - 1}"
+                )
+
+            # 환경 초기화
+            self.env.current_step = 0
+            self.env.used_actions = set()
+            self.env.action_history = []
+
+            # 특정 문서 선택
+            self.env.doc_index = doc_index
+            base_doc = self.env.documents[doc_index]
+            self.env.current_text = base_doc.text
+
+            # 초기 점수 계산
+            self.env.current_score = self.env.judge.score(self.env.current_text)
+            state = self.env._scores_to_state(self.env.current_score)
+            text = self.env.current_text
+
+            log.info(f"[Eval] 문서 인덱스: {doc_index}")
+        else:
+            # 기본 reset() 사용
+            state, text = self.env.reset()
+
+        # 초기 점수를 자동으로 포맷팅 (DocumentScore의 필드를 동적으로 가져옴)
+        score_fields = [f.name for f in fields(self.env.current_score)]
+        score_lines = [
+            f"  - {field:22s}: {getattr(self.env.current_score, field):.2f}"
+            for field in score_fields
+        ]
+        score_text = "\n".join(score_lines)
+
+        log.info(
+            f"""[Eval] 초기 문서 내용:
+{"-" * 60}
+{text}
+{"-" * 60}
+초기 점수:
+{score_text}"""
+        )
 
         actions_taken = []
+        rewards_received = []
         last_action_idx = -1
+        initial_score = self.env.current_score
 
-        for t in range(max_steps):
+        for t in range(self.max_steps):
             obs = self._build_obs(
                 state=state,
                 step_idx=t,
@@ -531,34 +600,95 @@ class PPORunner:
             obs_t = obs.unsqueeze(0)
 
             with torch.no_grad():
-                logits, _ = self.policy(obs_t)
+                logits, value = self.policy(obs_t)
+                probs = torch.softmax(logits, dim=-1).squeeze().cpu().numpy()
                 action = torch.argmax(logits, dim=-1)
 
             action_idx = int(action.item())
             actions_taken.append(action_idx)
             action_name = self.env.actions[action_idx]
 
+            # 액션 확률 분포 출력
+            action_prob_log = (
+                f"\n[Step {t+1}] 액션 확률 분포 (Value: {value.item():.3f}):\n"
+            )
+            for act_name, prob in zip(self.env.actions, probs):
+                bar = "*" * int(prob * 25)
+                marker = " <-- 선택됨" if act_name == action_name else ""
+                action_prob_log += f"  {act_name:20s}: {prob:.3f} {bar}{marker}\n"
+            log.info(action_prob_log)
+
             before_text = self.env.current_text
             next_state, reward, done, info = self.env.step(action_idx)
+            rewards_received.append(reward)
 
-            log.info(f"\n[Step {t+1}] action = {action_name}, reward = {reward:.3f}")
-            log.info(f"  prev scores: {info.get("prev_scores")}")
-            log.info(f"  new  scores: {info.get("new_scores")}")
-            log.info("[before]")
-            log.info(before_text)
-            log.info("[after]")
-            log.info(self.env.current_text)
+            log.info(f"[Step {t+1}] action = {action_name}, reward = {reward:.3f}")
+
+            # prev_scores 포맷팅
+            prev_scores = info.get("prev_scores")
+            if prev_scores:
+                score_fields = [f.name for f in fields(prev_scores)]
+                score_lines = [
+                    f"  - {field:22s}: {getattr(prev_scores, field):.2f}"
+                    for field in score_fields
+                ]
+                score_text = "\n".join(score_lines)
+                log.info(f"Prev scores:\n{score_text}")
+
+            # new_scores 포맷팅
+            new_scores = info.get("new_scores")
+            if new_scores:
+                score_fields = [f.name for f in fields(new_scores)]
+                score_lines = [
+                    f"  - {field:22s}: {getattr(new_scores, field):.2f}"
+                    for field in score_fields
+                ]
+                score_text = "\n".join(score_lines)
+                log.info(f"New  scores:\n{score_text}")
+
+            log.info(f"[Before]\n{before_text}")
+            log.info(f"[After]\n{self.env.current_text}")
 
             last_action_idx = action_idx
             state = next_state
             if done:
                 log.info(
-                    f"\n[Eval] 종료 (reason={info.get('reason', 'unknown')}, step={t+1})"
+                    f"[Eval] 종료 (reason={info.get('reason', 'unknown')}, step={t+1})"
                 )
                 break
 
-        log.info(f"\n[Eval] 최종 점수: {self.env.current_score}")
+        # 최종 점수 포맷팅
+        final_score = self.env.current_score
+        score_fields = [f.name for f in fields(final_score)]
+        score_lines = [
+            f"  - {field:22s}: {getattr(final_score, field):.2f}"
+            for field in score_fields
+        ]
+        score_text = "\n".join(score_lines)
+
+        log.info(f"[Eval] 최종 점수:\n{score_text}")
         log.info(f"선택된 액션 인덱스 시퀀스: {actions_taken}")
+        log.info(f"선택된 액션 시퀀스: {[self.env.actions[a] for a in actions_taken]}")
+        log.info(f"총 보상: {sum(rewards_received):.3f}")
+
+        # 평가 결과 반환
+        result = {
+            "doc_index": (
+                doc_index
+                if doc_index is not None
+                else getattr(self.env, "doc_index", None)
+            ),
+            "initial_score": initial_score,
+            "final_score": self.env.current_score,
+            "actions_taken": actions_taken,
+            "action_names": [self.env.actions[a] for a in actions_taken],
+            "rewards": rewards_received,
+            "total_reward": sum(rewards_received),
+            "num_steps": len(actions_taken),
+            "final_text": self.env.current_text,
+        }
+
+        return result
 
     # -----------------------------
     # 정책 시각화
@@ -567,20 +697,25 @@ class PPORunner:
         """학습된 정책의 액션 확률 분포 확인"""
         state, _ = self.env.reset()
 
-        log.info(f"\n현재 문서 점수:")
-        log.info(f"  structure:           {state[0]:.2f}")
-        log.info(f"  length:              {state[1]:.2f}")
-        log.info(f"  academic_style:      {state[2]:.2f}")
-        log.info(f"  information_density: {state[3]:.2f}")
-        log.info(f"  clarity:             {state[4]:.2f}")
-        log.info(f"  overall:             {state[5]:.2f}")
+        log.info(
+            f"""현재 문서 점수:
+structure:           {state[0]:.2f}
+length:              {state[1]:.2f}
+academic_style:      {state[2]:.2f}
+information_density: {state[3]:.2f}
+clarity:             {state[4]:.2f}
+overall:             {state[5]:.2f}\n"""
+        )
 
         obs = self._build_obs(state, 0, -1)
         with torch.no_grad():
             logits, value = self.policy(obs.unsqueeze(0))
             probs = torch.softmax(logits, dim=-1).squeeze().cpu().numpy()
 
-        log.info(f"\nStep 1 액션 확률 (Value: {value.item():.3f}):")
+        # Step 1의 액션 확률 출력
+        action_log = f"Step 1 액션 확률 (Value: {value.item():.3f}):\n"
         for action, prob in zip(self.env.actions, probs):
             bar = "*" * int(prob * 25)
-            log.info(f"  {action:20s}: {prob:.3f} {bar}")
+            action_log += f"  {action:20s}: {prob:.3f} {bar}\n"
+
+        log.info(action_log)

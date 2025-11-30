@@ -62,6 +62,11 @@ class DocumentEditor:
                 "표현과 문장 구조를 더 명확하고 이해하기 쉽게 고쳐줘. "
                 "가능하면 문장의 길이를 크게 줄이지 말고, "
                 "독자가 쉽게 따라갈 수 있도록 재구성해. "
+                "정량적 표현에 대해서는 적절히 잘 표현해줘. "
+                "다음의 수식언은 불필요하니까 제거해줘. "
+                'FILLER_WORDS = ["매우", "아주", "상당히", "조금", "약간", "다소", "꽤"], FILLERS = ["매우 ", "아주 ","상당히 ","다소 ","꽤 ","어느 정도","기본적으로","일반적으로 말해서","말하자면","이를테면","다양한 ","여러 가지 ",]'
+                "다음과 같은 모호한 표현도 사용하지 않도록 해줘. "
+                '{"VAGUE_TERMS": ["여러", "다양한", "몇몇", "일부", "종종", "때때로", "가끔", "많은"], "VAGUE_PATTERNS": ["일지도 모르는", "일지도 모를", "있을지도 모르는", "아닐까", "않을까", "일 것이다", "좀 ", "약간 ", "조금 ", "가상의", "어떤 ", "그런 ", "같은 것", "라는 것", "라고 하는", "등등", "기타 등등"]}'
                 "수정된 글만 출력하고, 설명이나 코멘트는 쓰지 마."
             )
         elif action == "make_concise":
@@ -70,6 +75,8 @@ class DocumentEditor:
                 "다음 글에서 중복되거나 불필요한 부분을 줄이고, "
                 "핵심 내용만 남기도록 더 간결하게 만들어줘. "
                 "의미가 손실되지 않도록 주의하면서, 군더더기 표현을 제거해. "
+                "글의 길이는 다음의 조건을 참고하여 적절히 구성해줘. "
+                "OPTIMAL_WORD_COUNT_MIN = 200, OPTIMAL_WORD_COUNT_MAX = 500, OPTIMAL_WORDS_PER_SENTENCE_MIN = 20, OPTIMAL_WORDS_PER_SENTENCE_MAX = 40, TARGET_WORDS_PER_SENTENCE = 30"
                 "수정된 글만 출력하고, 설명이나 코멘트는 쓰지 마."
             )
         elif action == "improve_structure":
@@ -79,6 +86,13 @@ class DocumentEditor:
                 "논리적인 흐름이 더 자연스럽게 느껴지도록 재구성해줘. "
                 "필요하다면 문장을 나누거나 이어서, 전개가 매끄럽게 보이게 해. "
                 "내용 자체를 추가로 발명하지 말고, 기존 내용을 재구성하는 데 집중해. "
+                "입력된 내용을 토대로 배경, 목적, 방법, 결과, 결론의 흐름으로 구성하면 돼. "
+                "적절한 내용이 없다고 임의로 생성하거나 하면 안돼."
+                "다음의 내용을 참고해서 구조에 대한 표현을 할 수 있어"
+                '{"background":["배경","맥락","동기","문제","과제","기존","현재"],"objective":["목적","목표","연구","조사","탐구","분석","규명","밝히"],"method":["방법","접근","기법","알고리즘","프레임워크","모델","제안","제시","개발","설계"],"result":["결과","발견","입증","보여","달성","성능","실험","분석","확인"],"conclusion":["결론","시사점","제안","기여","의의","중요","기대","향후"]}'
+                "문장 연결 시에는 '그러나', '하지만', '또한', '더욱이', '따라서', '그러므로', "
+                "'그럼에도', '결과적으로', '특히', '구체적으로', '즉', '반면', '한편', '나아가', "
+                "'이에', '이를 통해'와 같은 연결어를 자연스럽게 활용해. "
                 "수정된 글만 출력하고, 설명이나 코멘트는 쓰지 마."
             )
         elif action == "make_academic":
@@ -230,7 +244,7 @@ class OfflineDocumentEditor(DocumentEditor):
     ) -> Tuple[str, Dict[str, float]]:
         offline_doc = self.dataloader.get_by_index(doc_index)
         action_sequences: Dict = offline_doc.get("action_sequences")
-        sequence:Dict = action_sequences.get(tuple(actions))
+        sequence: Dict = action_sequences.get(tuple(actions))
         steps = sequence.get("steps", [])
         if not steps:
             log.warning("Offline docs 데이터에 'steps' key가 없습니다.")
