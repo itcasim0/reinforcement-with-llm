@@ -1,4 +1,4 @@
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, override
 
 # external
 from openai import OpenAI
@@ -7,7 +7,7 @@ from openai import OpenAI
 from llm.core import client
 from utils.logger_factory import log
 
-from .data import DocOfflineData
+from dataloader.offline_loader import OfflineDocumentLoader
 
 client: OpenAI = client
 
@@ -214,32 +214,42 @@ class DocumentEditor:
         return response.choices[0].message.content.strip()
 
 
-class OfflineSingleDocEditor:
-    def __init__(self, jsonl_path, base_cost: float = 0.02):
-        self.data = DocOfflineData(jsonl_path)
-        self.base_cost = base_cost
-        self.base_token = 2000
+class OfflineDocumentEditor(DocumentEditor):
+    def __init__(
+        self,
+        dataloader: OfflineDocumentLoader = OfflineDocumentLoader(),
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.dataloader = dataloader
 
-    def edit(self, actions: List[str] | Tuple[str]) -> Tuple[str, Dict[str, float]]:
-        sequence = self.data.get_sequence_by_actions(actions)
+    @override
+    def edit(
+        self, doc_index, actions: List[str] | Tuple[str]
+    ) -> Tuple[str, Dict[str, float]]:
+        offline_doc = self.dataloader.get_by_index(doc_index)
+        action_sequences: Dict = offline_doc.get("action_sequences")
+        sequence:Dict = action_sequences.get(tuple(actions))
         steps = sequence.get("steps", [])
         if not steps:
             log.warning("Offline docs 데이터에 'steps' key가 없습니다.")
             steps = [{}]
 
+        # sequence dict내에 마지막 step의 결과와 비용 정보만 출력하면 됨.
         response: dict = steps[-1]
 
+        # step 이후 교정된 텍스트
         edited_text = response.get("output_text", "")
         if not edited_text:
             log.warning("교정된 텍스트가 없습니다.")
-            log.debug(response)
 
+        # step 이후 비용 정보
         cost_info = response.get("cost_info", {})
         if not cost_info:
             log.warning(
-                f"비용 정보가 없어, 기본 값인 used_cost={self.base_cost}, total_tokens={self.base_token}으로 설정합니다."
+                f"비용 정보가 없어, 기본 값인 used_cost={self.base_cost}, total_tokens=None으로 설정합니다."
             )
-            log.debug(response)
-            cost_info = {"used_cost": self.base_cost, "total_tokens": self.base_token}
+            cost_info = {"used_cost": self.base_cost, "total_tokens": None}
 
         return edited_text, cost_info

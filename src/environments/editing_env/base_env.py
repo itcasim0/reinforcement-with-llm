@@ -4,9 +4,9 @@ import random
 from utils.logger_factory import log
 
 from dataloader.reconstruct_loader import ReconstructDataLoader
+from dataloader.offline_loader import OfflineDocumentLoader
 from .components.component import DocumentJudge, DocumentScore, Action
 from .components.editor import DocumentEditor
-from .components.data import DocOfflineData
 
 
 class EditingEnv:
@@ -32,7 +32,7 @@ class EditingEnv:
 
     def __init__(
         self,
-        dataloader: ReconstructDataLoader | DocOfflineData,
+        dataloader: ReconstructDataLoader | OfflineDocumentLoader,
         max_steps: 3,
         # TODO: terminal_threshold 적용될 수 있도록 코드 수정하기
         terminal_threshold: float = 9.5,
@@ -45,7 +45,6 @@ class EditingEnv:
         self.dataloader = dataloader
         self.documents, self.doc_idxes = self._load_data()
         self.max_steps = max_steps
-        # self.available_documents = list(self.documents)
         self.available_doc_idxes = self.doc_idxes.copy()
         self.editor = DocumentEditor(editor_model, base_cost)
         self.judge = DocumentJudge()
@@ -67,6 +66,14 @@ class EditingEnv:
 
         # step마다 사용된 action을 기록하기 위함
         self.action_history = []
+
+        # 강화 학습 환경 요약 출력
+        self._env_summary()
+
+    def _env_summary(self):
+        log.info(
+            f"""강화 학습 환경 요약:
+학습에 사용할 데이터 수: {len(self.doc_idxes)}""")
 
     def _load_data(self):
         documents = self.dataloader.get_reconstructed_text(max_docs=5)
@@ -90,6 +97,7 @@ class EditingEnv:
         picked = self.available_doc_idxes.pop(
             random.randrange(len(self.available_doc_idxes))
         )
+        self.doc_index = picked
         base_doc = self.documents[picked]
 
         self.current_text = base_doc.text

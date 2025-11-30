@@ -8,13 +8,16 @@ from utils.logger_factory import log
 
 
 # TODO: 단일 jsonl과 dir을 전달받아서 둘다 처리할 수 있도록하고 인터페이스 적절히 수정
-class DocOfflineData:
+# TODO: 데이터를 다 load하는 것이 아닌, index를 전달받아서 해당 index의 관련된 문서만 load하게끔 하기
+class OfflineDocumentLoader:
     def __init__(self, jsonl_path=DATA_DIR / "paper_data" / "offline"):
         """
         JSONL 파일을 로드하고 인덱스를 생성합니다.
+        JSONL 파일 하나 당 문서 하나에 대한 시퀀스가 존재하는 형태여야 합니다.
+        디렉토리일 경우에는 문서 하나 당 파일 하나 씩 존재해야 합니다.
 
         Args:
-            jsonl_path: JSONL 파일 경로
+            jsonl_path: JSONL 파일 또는 디렉토리 경로
         """
 
         self.jsonl_path = Path(jsonl_path)
@@ -45,8 +48,6 @@ class DocOfflineData:
                     actions_tuple = tuple(record["actions"])
                     action_index[actions_tuple] = record
 
-        log.info(f"총 {len(sequences)}개의 시퀀스 로드 완료")
-
         return sequences, action_index
 
     def get_sequence_by_actions(self, actions: List[str] | Tuple[str]) -> Dict:
@@ -62,7 +63,7 @@ class DocOfflineData:
         actions_tuple = tuple(actions)
         return self.action_index.get(actions_tuple, {})
 
-    def get_by_index(self, index: int) -> Dict:
+    def get_by_index(self, index: int) -> Dict[str, Dict]:
         """
         주어진 index에 해당하는 jsonl 파일을 로드하여 특정 형식으로 반환합니다.
 
@@ -72,7 +73,7 @@ class DocOfflineData:
         Returns:
             {
                 "base_text": 첫 번째 sequence의 base_text,
-                "action_sequence": action_index 데이터
+                "action_sequences": action을 key로 하는 sequences 데이터
             }
         """
         if index < 0 or index >= self.total_docs:
@@ -84,7 +85,7 @@ class DocOfflineData:
 
         # JSONL 파일 로드
         sequences = []
-        action_index = {}
+        action_sequences = {}
 
         with open(target_jsonl, "r", encoding="utf-8") as f:
             for line in f:
@@ -94,9 +95,10 @@ class DocOfflineData:
 
                     # actions로 인덱싱 (튜플로 변환하여 hashable하게 만듦)
                     actions_tuple = tuple(record["actions"])
-                    action_index[actions_tuple] = record
+                    action_sequences[actions_tuple] = record
 
         # 첫 번째 sequence의 base_text 추출
         base_text = sequences[0]["base_text"] if sequences else ""
 
-        return {"base_text": base_text, "action_sequence": action_index}
+        # TODO dataclass로 만들어서 조금 더 객체 이동 간에 안정성 유지할 것
+        return {"base_text": base_text, "action_sequences": action_sequences}

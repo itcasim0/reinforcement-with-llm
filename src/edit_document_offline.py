@@ -16,7 +16,7 @@ import torch
 # internal
 from environments.editing_env.offline_env import OfflineEditingEnv
 from environments.editing_env.components.component import DocumentScore
-from environments.editing_env.components.data import DocOfflineData
+from dataloader.offline_loader import OfflineDocumentLoader
 from methods.ppo.runner import PPORunner
 
 from config.paths import LOGS_DIR, DATA_DIR
@@ -38,7 +38,8 @@ COST_LAMBDA = 1.0
 STEP_PENLTY = 0.1  # step 하나 당 패널티 (ex) reward -= 2step * 패널티)
 
 # JSONL_PATH = DATA_DIR / "paper_data" / "sequences_20251128_014521_tmp.jsonl"
-JSONL_PATH = DATA_DIR / "paper_data" / "offline" / "sequences_20251128_014521_tmp.jsonl"
+# JSONL_PATH = DATA_DIR / "paper_data" / "offline" / "sequences_20251128_014521_tmp.jsonl"
+JSONL_PATH = DATA_DIR / "paper_data" / "sequences_data"
 
 USE_SINGLE_SEQUENCE = True  # 오버피팅 모드 (첫 번째 시퀀스만 사용)
 USE_LLM_JUDGE = False  # False면 rule-based evaluator 사용
@@ -60,19 +61,18 @@ torch.manual_seed(SEED)
 
 def main():
 
-    # load data
-    log.info("데이터 로드")
-    dataloader = DocOfflineData(jsonl_path=JSONL_PATH)
-
+    # 환경 정의
+    log.info("강화 학습 환경 초기화 중...")
+    dataloader = OfflineDocumentLoader(jsonl_path=JSONL_PATH)
     env = OfflineEditingEnv(
         dataloader=dataloader,
-        jsonl_path=JSONL_PATH,  # jsonl_path 명시적 전달
         max_steps=3,
         terminal_threshold=TERMINAL_THRESHOLD,  # 추가 (호환성)
         cost_lambda=COST_LAMBDA,
         repeat_penalty=REPEAT_PENALTY,  # 반복 패널티 감소
         editor_model=EDITOR_MODEL,  # 기존 설정 유지
-        use_single_sequence=True,  # 오버피팅 모드 ON
+        use_single_sequence=False,  # 하나의 데이터만 활용할 경우
+        fixed_sequence_idx=0,  # use_single_sequence가 True일 경우, 몇 번째 index를 사용할 것인지
     )
 
     # 평가 지표 (state)의 개수
@@ -100,7 +100,7 @@ def main():
         checkpoint_dir=SAVE_CHECKPOINT_DIR,
     )
 
-    log.info("\n[학습 후] 정책:")
+    log.info("[학습 후] 정책:")
     runner.show_policy()
 
     # 평가
