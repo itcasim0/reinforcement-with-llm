@@ -17,7 +17,7 @@ from dataloader.reconstruct_loader import DomesticReconstructDataLoader
 from environments.editing_env.base_env import EditingEnv
 from methods.ppo.runner import PPORunner
 
-from config.paths import LOGS_DIR
+from config.paths import LOGS_DIR, DATA_DIR
 from utils.logger_factory import log
 
 # 재현을 위한 seed 설정
@@ -44,7 +44,8 @@ def main():
 
     # load data
     log.info("데이터 로드")
-    dataloader = DomesticReconstructDataLoader()
+    input_path = DATA_DIR / "paper_data" / "noise" / "paper_abstract_with_noise_20251130_021815.json"
+    dataloader = DomesticReconstructDataLoader(data_path = input_path)
 
     # 강화학습 환경 구성
     log.info("강화학습 환경 구성")

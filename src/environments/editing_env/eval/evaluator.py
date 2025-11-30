@@ -128,6 +128,7 @@ class AbstractQualityEvaluator:
 
         for section, keywords in self.structure_keywords.items():
             keyword_count = sum(1 for kw in keywords if kw in abstract_lower)
+
             scores[section] = min(1.0, keyword_count)
 
         structure_completeness = np.mean(list(scores.values()))
@@ -290,7 +291,8 @@ class AbstractQualityEvaluator:
 
         word_freq = Counter(all_words)
         repeated_concepts = [w for w, c in word_freq.items() if c >= 2]
-        concept_consistency = min(1.0, len(repeated_concepts) / 5)
+
+        concept_consistency = max(0, 1.0 - len(repeated_concepts)* 0.1)
 
         clarity_score = (vague_penalty + concept_consistency) / 2
 

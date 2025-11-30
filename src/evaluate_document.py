@@ -14,11 +14,19 @@ def _evaluate_base(text):
     score = evaluator.evaluate_abstract(text)
     return score
 
-
 def _format_score_output(score_dict, indent=2):
     return json.dumps(score_dict, ensure_ascii=False, indent=indent)
 
+def get_socre(json_path):
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
 
+    noised_list = [item["abstract_reconstructed"] for item in data["results"]]
+
+    for i, base_text in enumerate(noised_list):
+        before_base_score = _evaluate_base(base_text)
+        print((before_base_score["overall_score"]))
+        
 def main():
 
     SEQUENCE_IDX = 70
@@ -44,6 +52,8 @@ def main():
     log.info("교정 후:")
     log.info("\n" + _format_score_output(after_base_score))
 
-
 if __name__ == "__main__":
+    # json_path = "data/paper_data/reconstruct/paper_abstract_20251130_021815.json"
+    # get_socre(json_path)
+
     main()

@@ -83,7 +83,7 @@ def load_existing_sequences(
     return seq_cache, max_seq_id
 
 
-def build_all_sequences_for_first_doc(output_path: Path):
+def build_all_sequences(input_path, start_idx, end_idx):
     """
     DomesticReconstructDataLoader에서 첫 번째 문서를 가져와서,
     모든 액션 시퀀스(길이 1~3, 총 155개)에 대해 편집을 수행하고 JSONL로 저장.
@@ -94,129 +94,134 @@ def build_all_sequences_for_first_doc(output_path: Path):
     - output_path가 이미 존재하면 그 안의 시퀀스를 읽어와서
       아직 없는 시퀀스만 추가로 생성 (중간 재시작 가능).
     """
-    # 1) 데이터 로더에서 첫 번째 문서 하나만 가져오기
-    loader = DomesticReconstructDataLoader()
-    docs: List[Document] = loader.get_reconstructed_text(max_docs=1)
+
+    loader = DomesticReconstructDataLoader(data_path = input_path)
+    docs: List[Document] = loader.get_noised_text()
 
     if not docs:
         log.info("[ERROR] No documents loaded from DomesticReconstructDataLoader.")
         return
 
-    base_doc: Document = docs[0]
-    base_text: str = base_doc.text
+    for i in range(start_idx, end_idx) :
+        output_path = DATA_DIR / "editing" / f"sequences_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jsonl"
 
-    log.info("[INFO] Base document loaded.")
-    log.info(base_text[:200] + ("..." if len(base_text) > 200 else ""))
+        base_doc: Document = docs[i]
+        base_text: str = base_doc.text
 
-    # 2) 에디터 초기화
-    editor = DocumentEditor(
-        model="qwen/qwen3-8b",
-        base_cost=0.02,
-        price_per_1k_tokens=0.000028,
-    )
+        log.info("[INFO] Base document loaded.")
+        log.info(base_text[:200] + ("..." if len(base_text) > 200 else ""))
 
-    # 3) 출력 디렉토리 생성
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+        # 2) 에디터 초기화
+        editor = DocumentEditor(
+            model="qwen/qwen3-8b",
+            price_per_1m_tokens=0.028,
+        )
 
-    # 4) 기존 JSONL 파일 읽어서 seq_cache 구성 (있다면)
-    seq_cache, max_seq_id = load_existing_sequences(output_path)
-    next_sequence_id = max_seq_id + 1
+        # 3) 출력 디렉토리 생성
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # 5) 새로 생성되는 시퀀스는 파일에 append 모드로 바로바로 기록
-    with output_path.open("a", encoding="utf-8") as wf:
+        # 4) 기존 JSONL 파일 읽어서 seq_cache 구성 (있다면)
+        seq_cache, max_seq_id = load_existing_sequences(output_path)
+        next_sequence_id = max_seq_id + 1
 
-        def get_or_build_sequence(actions: Tuple[str, ...]) -> Dict[str, Any]:
-            """
-            주어진 액션 튜플에 대한 시퀀스 record를 반환.
-            - 이미 seq_cache에 있다면 그대로 반환 (LLM 호출 없음)
-            - 없으면 prefix를 먼저(재귀적으로) 만들고, 마지막 액션만 LLM으로 호출해서 새 record 생성
-            - 새 record는 JSONL에도 한 줄 append
-            """
-            nonlocal next_sequence_id
+        # 5) 새로 생성되는 시퀀스는 파일에 append 모드로 바로바로 기록
+        with output_path.open("a", encoding="utf-8") as wf:
 
-            # 이미 만들어진 시퀀스면 그대로 사용
-            if actions in seq_cache:
-                return seq_cache[actions]
+            def get_or_build_sequence(actions: Tuple[str, ...]) -> Dict[str, Any]:
+                """
+                주어진 액션 튜플에 대한 시퀀스 record를 반환.
+                - 이미 seq_cache에 있다면 그대로 반환 (LLM 호출 없음)
+                - 없으면 prefix를 먼저(재귀적으로) 만들고, 마지막 액션만 LLM으로 호출해서 새 record 생성
+                - 새 record는 JSONL에도 한 줄 append
+                """
+                nonlocal next_sequence_id
 
-            # prefix 시퀀스를 먼저 확보
-            if len(actions) == 1:
-                # 길이 1이면 prefix 없음 → base_text에서 바로 시작
-                prefix_record = None
-                input_text = base_text
-                steps_before: List[Dict[str, Any]] = []
-                total_cost_before = 0.0
-            else:
-                prefix = actions[:-1]
-                prefix_record = get_or_build_sequence(prefix)  # 재귀적으로 prefix 생성/획득
-                input_text = prefix_record["final_text"]
-                steps_before = prefix_record["steps"]
-                total_cost_before = float(prefix_record["total_cost_usd"])
+                # 이미 만들어진 시퀀스면 그대로 사용
+                if actions in seq_cache:
+                    return seq_cache[actions]
 
-            last_action = actions[-1]
+                # prefix 시퀀스를 먼저 확보
+                if len(actions) == 1:
+                    # 길이 1이면 prefix 없음 → base_text에서 바로 시작
+                    prefix_record = None
+                    input_text = base_text
+                    steps_before: List[Dict[str, Any]] = []
+                    total_cost_before = 0.0
+                else:
+                    prefix = actions[:-1]
+                    prefix_record = get_or_build_sequence(prefix)  # 재귀적으로 prefix 생성/획득
+                    input_text = prefix_record["final_text"]
+                    steps_before = prefix_record["steps"]
+                    total_cost_before = float(prefix_record["total_cost_usd"])
 
-            log.info(f"[INFO] seq {next_sequence_id} (new) / actions = {list(actions)}")
+                last_action = actions[-1]
 
-            # LLM 한 번 호출: (input_text, last_action)
-            try:
-                edited_text, cost_info = editor.edit(input_text, last_action)
-            except Exception as e:
-                log.info(
-                    f"[WARN] edit failed at seq={next_sequence_id}, "
-                    f"actions={actions}, last_action={last_action}: {e}"
-                )
-                # 실패하면 이 시퀀스는 생성하지 않고 예외 전파/무시 선택 가능
-                # 여기서는 None 반환 대신 예외를 그대로 올리거나,
-                # 필요하다면 return prefix_record 등으로 우회 가능
-                raise
+                log.info(f"[INFO] seq {next_sequence_id} (new) / actions = {list(actions)}")
 
-            used_cost = float(cost_info.get("used_cost") or 0.0)
+                # LLM 한 번 호출: (input_text, last_action)
+                try:
+                    edited_text, cost_info = editor.edit(input_text, last_action)
+                except Exception as e:
+                    log.info(
+                        f"[WARN] edit failed at seq={next_sequence_id}, "
+                        f"actions={actions}, last_action={last_action}: {e}"
+                    )
+                    # 실패하면 이 시퀀스는 생성하지 않고 예외 전파/무시 선택 가능
+                    # 여기서는 None 반환 대신 예외를 그대로 올리거나,
+                    # 필요하다면 return prefix_record 등으로 우회 가능
+                    raise
 
-            # prefix의 step 뒤에 새 step 하나 추가
-            new_step_idx = len(steps_before) + 1
-            new_step = {
-                "step": new_step_idx,
-                "action": last_action,
-                "input_text": input_text,
-                "output_text": edited_text,
-                "cost_info": cost_info,
-            }
+                used_cost = float(cost_info.get("used_cost") or 0.0)
 
-            steps = steps_before + [new_step]
-            total_cost = total_cost_before + used_cost
+                # prefix의 step 뒤에 새 step 하나 추가
+                new_step_idx = len(steps_before) + 1
+                new_step = {
+                    "step": new_step_idx,
+                    "action": last_action,
+                    "input_text": input_text,
+                    "output_text": edited_text,
+                    "cost_info": cost_info,
+                }
 
-            record: Dict[str, Any] = {
-                "sequence_id": next_sequence_id,
-                "actions": list(actions),
-                "base_text": base_text,
-                "final_text": edited_text,
-                "steps": steps,
-                "total_cost_usd": total_cost,
-            }
+                steps = steps_before + [new_step]
+                total_cost = total_cost_before + used_cost
 
-            # 캐시에 저장
-            seq_cache[actions] = record
+                record: Dict[str, Any] = {
+                    "sequence_id": next_sequence_id,
+                    "actions": list(actions),
+                    "base_text": base_text,
+                    "final_text": edited_text,
+                    "steps": steps,
+                    "total_cost_usd": total_cost,
+                }
 
-            # JSONL에 한 줄 기록
-            wf.write(json.dumps(record, ensure_ascii=False) + "\n")
-            wf.flush()
+                # 캐시에 저장
+                seq_cache[actions] = record
 
-            next_sequence_id += 1
-            return record
+                # JSONL에 한 줄 기록
+                wf.write(json.dumps(record, ensure_ascii=False) + "\n")
+                wf.flush()
 
-        # 6) 길이 1~3 모든 시퀀스에 대해 get_or_build_sequence 호출
-        for actions in generate_action_sequences(max_len=3):
-            actions = tuple(actions)
-            # 이미 파일에 있는 시퀀스면 이 호출에서 아무것도 안 하고 넘어감
-            try:
-                get_or_build_sequence(actions)
-            except Exception as e:
-                log.info(f"[ERROR] Failed to build sequence {actions}: {e}")
-                # 필요하면 여기서 continue로 다음 시퀀스 진행
-                continue
+                next_sequence_id += 1
+                return record
 
-    log.info(f"[DONE] saved all sequences dataset to {output_path}")
+            # 6) 길이 1~3 모든 시퀀스에 대해 get_or_build_sequence 호출
+            for actions in generate_action_sequences(max_len=3):
+                actions = tuple(actions)
+                # 이미 파일에 있는 시퀀스면 이 호출에서 아무것도 안 하고 넘어감
+                try:
+                    get_or_build_sequence(actions)
+                except Exception as e:
+                    log.info(f"[ERROR] Failed to build sequence {actions}: {e}")
+                    # 필요하면 여기서 continue로 다음 시퀀스 진행
+                    continue
+
+        log.info(f"[DONE] saved all sequences dataset to {output_path}")
 
 
 if __name__ == "__main__":
-    output_file = DATA_DIR / "editing" / f"sequences_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jsonl"
-    build_all_sequences_for_first_doc(output_file)
+    input_file = DATA_DIR / "paper_data" / "noise" / "paper_abstract_with_noise_20251130_021815.json"
+
+    start_idx = 3
+    end_idx = 5
+    build_all_sequences(input_file, start_idx, end_idx)

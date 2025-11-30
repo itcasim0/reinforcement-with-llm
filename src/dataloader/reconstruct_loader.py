@@ -10,19 +10,13 @@ from utils.util import load_json
 
 
 class DomesticReconstructDataLoader:
-    def __init__(self):
+    def __init__(self, data_path):
         """
         국내 논문 초록을 재가공한 데이터 클래스를 별도로 하나 더 만든 이유는,
         JSON 파일 파싱하는 방법이 조금 다르고, 로드하는 파일 개수가 조금 달라서 우선 클래스 하나 만듦
         """
 
-        # 국내 논문 초록 데이터 파일은 현재 하나이니까 명시적으로 선언
-        self.data_path = (
-            DATA_DIR
-            / "paper_data"
-            / "reconstruct"
-            / "paper_abstract_20251125_002418.json"
-        )
+        self.data_path = data_path
 
     def get_reconstructed_text(self, max_docs=float("inf")) -> List[Document]:
 
@@ -43,6 +37,24 @@ class DomesticReconstructDataLoader:
             log.info(f"[WARN] Error reading {self.data_path}: {e}")
 
         return reconstructed_texts
+    
+    def get_noised_text(self) -> List[Document]:
+
+        noised_texts = []
+
+        try:
+            data = load_json(self.data_path)
+
+            results: List[dict] = data.get("results", [])
+            for result in results:
+                abstract_text = result.get("abstract_noised", "")
+                if abstract_text:
+                    noised_texts.append(Document(text=abstract_text))
+
+        except Exception as e:
+            log.info(f"[WARN] Error reading {self.data_path}: {e}")
+
+        return noised_texts
 
 
 class ReconstructDataLoader:
