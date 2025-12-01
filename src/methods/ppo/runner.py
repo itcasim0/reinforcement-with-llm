@@ -487,6 +487,11 @@ class PPORunner:
             log.info(f"체크포인트 세션 디렉토리 생성: {self.checkpoint_session_dir}")
 
         reward_history = []
+        # Visualization 기록용
+        actor_loss_history = []
+        critic_loss_history = []
+        entropy_history = []
+
 
         for ep in range(self.start_episode + 1, self.start_episode + num_episodes + 1):
             traj = self._collect_trajectory()
@@ -502,6 +507,11 @@ class PPORunner:
                     self.save_checkpoint(checkpoint_dir, ep, is_best=True)
 
             loss_info = self.ppo_update(traj)
+            # Visualization 기록 저장
+            actor_loss_history.append(loss_info["actor_loss"])
+            critic_loss_history.append(loss_info["critic_loss"])
+            entropy_history.append(loss_info["entropy"])
+
 
             if ep % log_interval == 0:
                 log.info(
@@ -523,6 +533,19 @@ class PPORunner:
         # 학습 종료 시 최종 체크포인트 저장
         if checkpoint_dir:
             self.save_checkpoint(checkpoint_dir, self.start_episode + num_episodes)
+
+            # 학습 로그 저장 (추가)
+            log_data = {
+                'episodes': list(range(self.start_episode + 1, self.start_episode + num_episodes + 1)),
+                'returns': reward_history,
+                'actor_losses': actor_loss_history,
+                'critic_losses': critic_loss_history,
+                'entropies': entropy_history
+            }
+            with open(self.checkpoint_session_dir / 'training_log.json', 'w') as f:
+                json.dump(log_data, f, indent=2)
+            
+            log.info(f"학습 로그 저장: {self.checkpoint_session_dir / 'training_log.json'}")
 
         return reward_history
 
