@@ -4,21 +4,21 @@ edit_document.py에는 학습과 평가하는 코드가 공존하므로 참고
 
 import sys
 from pathlib import Path
-
-# src 디렉토리를 sys.path에 추가
-if str(Path(__file__).parent) not in sys.path:
-    sys.path.insert(0, str(Path(__file__).parent))
 import random
 
 import torch
 
-# internal
-from dataloader.reconstruct_loader import DomesticReconstructDataLoader
-from environments.editing_env.base_env import EditingEnv
-from methods.ppo.runner import PPORunner
+# 프로젝트 루트를 Python 경로에 추가
+root_dir = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(root_dir))
+sys.path.insert(1, str(root_dir / "src"))
 
-from config.paths import LOGS_DIR, DATA_DIR
-from utils.logger_factory import log
+# internal
+from src.dataloader.reconstruct_loader import DomesticReconstructDataLoader
+from src.environments.editing_env.base_env import EditingEnv
+from src.methods.ppo.runner import PPORunner
+from src.config.paths import LOGS_DIR, DATA_DIR
+from src.utils.logger_factory import log
 
 # 재현을 위한 seed 설정
 SEED = 42

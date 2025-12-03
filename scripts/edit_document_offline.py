@@ -4,23 +4,23 @@ edit_document_offline.py에는 사전에 미리 LLM을 통해 도출된 결과�
 
 import sys
 from pathlib import Path
-
-# src 디렉토리를 sys.path에 추가
-if str(Path(__file__).parent) not in sys.path:
-    sys.path.insert(0, str(Path(__file__).parent))
 import random
 from dataclasses import fields
 
 import torch
 
-# internal
-from environments.editing_env.offline_env import OfflineEditingEnv
-from environments.editing_env.components.component import DocumentScore
-from dataloader.offline_loader import OfflineDocumentLoader
-from methods.ppo.runner import PPORunner
+# 프로젝트 루트를 Python 경로에 추가
+root_dir = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(root_dir))
+sys.path.insert(1, str(root_dir / "src"))
 
-from config.paths import LOGS_DIR, DATA_DIR
-from utils.logger_factory import log
+# internal
+from src.environments.editing_env.offline_env import OfflineEditingEnv
+from src.environments.editing_env.components.component import DocumentScore
+from src.dataloader.offline_loader import OfflineDocumentLoader
+from src.methods.ppo.runner import PPORunner
+from src.config.paths import LOGS_DIR, DATA_DIR
+from src.utils.logger_factory import log
 
 # 재현을 위한 seed 설정
 SEED = 42

@@ -1,11 +1,17 @@
+import sys
+from pathlib import Path
 import json
 from dataclasses import asdict
 
-# internal
-from environments.editing_env.eval.evaluator import AbstractQualityEvaluator
-from dataloader.offline_loader import OfflineDocumentLoader
+# 프로젝트 루트를 Python 경로에 추가
+root_dir = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(root_dir))
+sys.path.insert(1, str(root_dir / "src"))
 
-from utils.logger_factory import log
+# internal
+from src.environments.editing_env.eval.evaluator import AbstractQualityEvaluator
+from src.dataloader.offline_loader import OfflineDocumentLoader
+from src.utils.logger_factory import log
 
 
 def _evaluate_base(text):
