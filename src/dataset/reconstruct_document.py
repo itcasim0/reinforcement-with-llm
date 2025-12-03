@@ -458,6 +458,7 @@ def reconstruct_paper(
             )
 
             paper_result = {
+                "doc_id": paper.get("doc_id"),
                 "title": title,
                 "author": paper.get("author"),
                 "journal": paper.get("journal"),

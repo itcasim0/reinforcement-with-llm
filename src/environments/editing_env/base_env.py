@@ -34,7 +34,6 @@ class EditingEnv:
         self,
         dataloader: ReconstructDataLoader | OfflineDocumentLoader,
         max_steps: 3,
-        # TODO: terminal_threshold 적용될 수 있도록 코드 수정하기
         terminal_threshold: float = 9.5,
         cost_lambda: float = 1.0,
         repeat_penalty: float = 0.3,  # 같은 액션 반복 사용 시 패널티
@@ -227,6 +226,13 @@ class EditingEnv:
             repeat_penalty = self.repeat_penalty
             reward -= repeat_penalty
             repeat_penalty_applied = True
+
+        # terminal_threshold 도달 시 조기 종료 (액션 실행 후 overall 점수 기준)
+        if new_overall >= self.terminal_threshold:
+            final_bonus = self._terminal_reward(new_scores)
+            reward += final_bonus
+            done = True
+            info["reason"] = "threshold_reached"
 
         # 최대 스텝 도달 시 종료 보상 추가
         if self.current_step >= self.max_steps:

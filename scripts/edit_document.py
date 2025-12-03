@@ -23,6 +23,9 @@ from src.utils.logger_factory import log
 # 재현을 위한 seed 설정
 SEED = 42
 
+# 입력 데이터셋 json 파일
+INPUT_DATA = DATA_DIR / "paper_data" / "reconstruct" / "paper_abstract_with_id_20251203_145258.json"
+
 # parameters for environment
 TERMINAL_THRESHOLD = 9.5  # 문서의 종합 품질 점수에 따라 종료할 한계점
 REAPEAT_PANELTY = 0.3  # 반복 액션에 대한 패널티 정도
@@ -44,8 +47,7 @@ def main():
 
     # load data
     log.info("데이터 로드")
-    input_path = DATA_DIR / "paper_data" / "noise" / "paper_abstract_with_noise_20251130_021815.json"
-    dataloader = DomesticReconstructDataLoader(data_path = input_path)
+    dataloader = DomesticReconstructDataLoader(data_path = INPUT_DATA)
 
     # 강화학습 환경 구성
     log.info("강화학습 환경 구성")
