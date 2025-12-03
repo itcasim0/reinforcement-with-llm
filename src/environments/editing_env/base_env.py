@@ -3,10 +3,10 @@ import random
 
 from utils.logger_factory import log
 
-from dataloader.reconstruct_loader import ReconstructDataLoader
+from dataloader.reconstruct_loader import DomesticReconstructDataLoader
 from dataloader.offline_loader import OfflineDocumentLoader
-from .components.component import DocumentJudge, DocumentScore, Action
-from .components.editor import DocumentEditor
+from .components.component import DocumentEvaluator, DocumentScore, Action
+from .components.editor import HybridDocumentEditor
 
 
 class EditingEnv:
@@ -32,7 +32,7 @@ class EditingEnv:
 
     def __init__(
         self,
-        dataloader: ReconstructDataLoader | OfflineDocumentLoader,
+        dataloader: DomesticReconstructDataLoader | OfflineDocumentLoader,
         max_steps: 3,
         terminal_threshold: float = 9.5,
         cost_lambda: float = 1.0,
@@ -42,21 +42,25 @@ class EditingEnv:
         step_penalty: float = 0.1,  # step 하나 당 패널티
     ):
         self.dataloader = dataloader
-        self.documents, self.doc_idxes = self._load_data()
         self.max_steps = max_steps
-        self.available_doc_idxes = self.doc_idxes.copy()
-        self.editor = DocumentEditor(editor_model, base_cost)
-        self.judge = DocumentJudge()
+        self.editor = HybridDocumentEditor(model=editor_model, base_cost=base_cost)
+        self.evaluator = DocumentEvaluator()
         self.terminal_threshold = terminal_threshold
         self.cost_lambda = cost_lambda
         self.repeat_penalty = repeat_penalty
         self.step_penalty = step_penalty
+
+        # 문서별 idx 부여
+        self.doc_idxes = [idx for idx in range(dataloader.docs_count)]
+        # 비복원 추출을 위함
+        self.available_doc_idxes = self.doc_idxes.copy()
 
         self.actions = Action.as_list()
         self.num_actions = len(self.actions)
 
         # 현재 에피소드 상태
         self.current_text = ""
+        self.current_doc_id = ""
         self.current_score = DocumentScore()
         self.current_step: int = 0
 
@@ -72,11 +76,8 @@ class EditingEnv:
     def _env_summary(self):
         log.info(
             f"""강화 학습 환경 요약:
-학습에 사용할 데이터 수: {len(self.doc_idxes)}""")
-
-    def _load_data(self):
-        documents = self.dataloader.get_reconstructed_text(max_docs=5)
-        return documents, [i for i in range(len(documents))]
+- 학습에 사용할 데이터 수: {len(self.doc_idxes)}"""
+        )
 
     def reset(self):
         """
@@ -96,12 +97,17 @@ class EditingEnv:
         picked = self.available_doc_idxes.pop(
             random.randrange(len(self.available_doc_idxes))
         )
-        self.doc_index = picked
-        base_doc = self.documents[picked]
 
-        self.current_text = base_doc.text
+        # 학습에 사용할 text 추출
+        data = self.dataloader.load_by_index(picked)
+        self.current_text = self.dataloader.dict_to_document(data).text
+        # doc_id를 활용하여 학습 시 재사용을 위함
+        self.current_doc_id = (
+            self.dataloader.doc_ids[picked] if self.dataloader.docs_count else None
+        )
 
-        self.current_score = self.judge.score(self.current_text)
+        # 현재 문서 평가 점수 도출
+        self.current_score = self.evaluator.score(self.current_text)
         state = self._scores_to_state(self.current_score)
         return state, self.current_text
 
@@ -129,8 +135,10 @@ class EditingEnv:
             scores.overall,
         )
 
-    def _edit(self, action):
-        return self.editor.edit(self.current_text, action)
+    def _edit(self) -> Tuple[str, Dict]:
+        return self.editor.edit(
+            self.current_doc_id, self.current_text, self.action_history
+        )
 
     def step(
         self, action_index: int
@@ -169,7 +177,7 @@ class EditingEnv:
             return next_state, reward, done, info
 
         # 문서 편집 클래스 호출
-        edited_text, cost_info = self._edit(action)
+        edited_text, cost_info = self._edit()
         self.current_text = edited_text
         self.current_step += 1
 
@@ -178,7 +186,7 @@ class EditingEnv:
         total_tokens = cost_info.get("total_tokens", None)
 
         # 2) 문서 평가 호출 후 점수 업데이트
-        new_scores = self.judge.score(self.current_text)
+        new_scores = self.evaluator.score(self.current_text)
         self.current_score = new_scores
         new_overall = new_scores.overall
 

@@ -407,9 +407,18 @@ def reconstruct_paper(
     output_path: Path = None,
     max_docs: int = None,
     model_name: str = "openai/gpt-4o-mini",
+    skip_existing: bool = True,
 ):
     """
-    논문 데이터를 처리하여 텍스트 재구성 (개별 저장 버전)
+    논문 데이터를 처리하여 텍스트 재구성 (개별 파일 저장 버전)
+    각 논문 결과를 doc_id를 파일명으로 하여 개별 JSON 파일로 저장
+    
+    Args:
+        doc_path: 입력 JSON 파일 경로 리스트
+        output_path: 출력 디렉토리 경로
+        max_docs: 처리할 최대 문서 수
+        model_name: 사용할 LLM 모델명
+        skip_existing: True면 이미 존재하는 파일 건너뛰기, False면 덮어쓰기
     """
     for p in doc_path:
 
@@ -427,14 +436,9 @@ def reconstruct_paper(
 
         reconstructor = TextReconstructorLLM(model_name=model_name)
 
-        # output JSON 파일 생성
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_file = output_path / f"{p.stem}_{timestamp}.json"
-
-        # 파일이 없다면 빈 리스트 형태로 초기화
-        if not output_file.exists():
-            with open(output_file, "w", encoding="utf-8") as f:
-                json.dump({"results": []}, f, ensure_ascii=False, indent=2)
+        # output 디렉토리 확인 및 생성
+        if not output_path.exists():
+            output_path.mkdir(parents=True, exist_ok=True)
 
         for idx, paper in enumerate(papers):
             title = paper.get("title", "N/A")
@@ -443,6 +447,19 @@ def reconstruct_paper(
             abstract = (paper.get("abstract") or "").strip()
             if not abstract:
                 log.warning(f"No abstract found for {title}")
+                continue
+
+            # doc_id 먼저 확인
+            doc_id = paper.get("doc_id")
+            if not doc_id:
+                log.warning(f"doc_id가 없습니다. 확인하세요.:\n{paper}")
+                continue
+
+            output_file = output_path / f"{doc_id}.json"
+
+            # 이미 존재하는 파일 처리
+            if skip_existing and output_file.exists():
+                log.info(f"Skipping existing file: {doc_id}.json")
                 continue
 
             # LLM 재구성
@@ -458,7 +475,6 @@ def reconstruct_paper(
             )
 
             paper_result = {
-                "doc_id": paper.get("doc_id"),
                 "title": title,
                 "author": paper.get("author"),
                 "journal": paper.get("journal"),
@@ -471,15 +487,8 @@ def reconstruct_paper(
                 },
             }
 
-            # 기존 파일 내용 읽기
-            with open(output_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-
-            # append
-            data["results"].append(paper_result)
-
-            # 다시 저장
+            # 개별 파일로 저장
             with open(output_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
+                json.dump(paper_result, f, ensure_ascii=False, indent=2)
 
-        log.info(f"All results saved to: {output_file}")
+        log.info(f"All results saved to: {output_path}")

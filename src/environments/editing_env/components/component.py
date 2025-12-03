@@ -1,7 +1,7 @@
 from dataclasses import dataclass, fields
 
 # internal
-from environments.editing_env.eval.evaluator import AbstractQualityEvaluator
+from environments.editing_env.components.eval.evaluator import AbstractQualityEvaluator
 
 
 @dataclass
@@ -43,7 +43,7 @@ class Action:
         return [getattr(cls, f.name) for f in fields(cls)]
 
 
-class DocumentJudge:
+class DocumentEvaluator:
     """입력된 문서의 품질을 평가하는 클래스"""
 
     def __init__(self):

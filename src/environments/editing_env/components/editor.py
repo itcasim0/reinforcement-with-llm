@@ -8,6 +8,7 @@ from llm.core import client
 from utils.logger_factory import log
 
 from dataloader.offline_loader import OfflineDocumentLoader
+from dataloader.cache_loader import CacheDocumentLoader
 
 client: OpenAI = client
 
@@ -265,5 +266,94 @@ class OfflineDocumentEditor(DocumentEditor):
                 f"비용 정보가 없어, 기본 값인 used_cost={self.base_cost}, total_tokens=None으로 설정합니다."
             )
             cost_info = {"used_cost": self.base_cost, "total_tokens": None}
+
+        return edited_text, cost_info
+
+
+# TODO: 추후 default editor로 하나만 사용하도록 교체할 것
+class HybridDocumentEditor(DocumentEditor):
+    """
+    캐시된 오프라인 데이터를 우선 사용하고, 없으면 LLM을 호출하는 하이브리드 에디터
+
+    doc_id와 actions를 받아서:
+    1. 먼저 캐시에서 해당 doc_id와 actions에 해당하는 편집 결과를 찾음
+    2. 캐시에 없으면 LLM을 호출하여 실시간으로 편집
+    """
+
+    def __init__(
+        self,
+        dataloader: CacheDocumentLoader = CacheDocumentLoader(),
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.dataloader = dataloader
+
+    @override
+    def edit(
+        self, doc_id: int, doc: str, actions: List[str] | Tuple[str]
+    ) -> Tuple[str, Dict[str, float]]:
+        """
+        doc_id, doc, actions를 받아서 편집 수행
+
+        Args:
+            doc_id: 문서 ID (캐시 검색용)
+            doc: 편집할 문서 텍스트 (LLM 호출용)
+            actions: 편집 액션 리스트 또는 튜플
+
+        Returns:
+            (편집된 텍스트, 비용 정보)
+        """
+        # actions의 마지막 항목 추출
+        actions_list = list(actions) if isinstance(actions, tuple) else actions
+        if not actions_list:
+            raise ValueError("actions가 비어있습니다.")
+
+        last_action = actions_list[-1]
+
+        # 캐시에서 doc_sequences 로드 시도
+        try:
+            doc_sequences = self.dataloader.load_by_doc_id(doc_id)
+        except Exception:
+            doc_sequences = {}
+
+        try:
+            sequence: Dict = doc_sequences.get(tuple(actions))
+            if sequence is not None:
+                edited_text = sequence.get("output_text", "")
+                if not edited_text:
+                    log.warning("교정된 텍스트가 없습니다. LLM 호출로 대체합니다.")
+                    raise ValueError("캐시에 output_text가 없음")
+
+                cost_info = sequence.get("cost_info", {})
+                if not cost_info:
+                    log.warning(
+                        f"비용 정보가 없어, 기본 값인 used_cost={self.base_cost}, total_tokens=None으로 설정합니다."
+                    )
+                    cost_info = {"used_cost": self.base_cost, "total_tokens": None}
+
+                return edited_text, cost_info
+        except Exception as e:
+            log.info(f"캐시 로더에서 알 수 없는 오류 발생: {e}")
+
+        # 캐시에 없으면 LLM 호출하여 실시간 편집
+
+        # 부모 클래스의 edit 메서드 호출 (doc과 마지막 action 사용)
+        edited_text, cost_info = super().edit(doc, last_action)
+
+        # LLM 호출 결과를 캐시에 저장
+        try:
+            # actions를 키로 하여 편집 결과 추가
+            actions_key = tuple(actions)
+            doc_sequences[actions_key] = {
+                "output_text": edited_text,
+                "cost_info": cost_info,
+            }
+
+            # 캐시에 저장
+            self.dataloader.save(doc_sequences, doc_id)
+
+        except Exception as e:
+            log.warning(f"캐시 저장 중 오류 발생: {e}. 편집 결과는 반환됩니다.")
 
         return edited_text, cost_info

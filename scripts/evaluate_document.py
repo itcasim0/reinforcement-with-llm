@@ -9,7 +9,7 @@ sys.path.insert(0, str(root_dir))
 sys.path.insert(1, str(root_dir / "src"))
 
 # internal
-from src.environments.editing_env.eval.evaluator import AbstractQualityEvaluator
+from src.environments.editing_env.components.eval.evaluator import AbstractQualityEvaluator
 from src.dataloader.offline_loader import OfflineDocumentLoader
 from src.utils.logger_factory import log
 

@@ -4,7 +4,6 @@ from pathlib import Path
 
 # internal
 from config.paths import DATA_DIR
-from utils.logger_factory import log
 
 
 # TODO: 단일 jsonl과 dir을 전달받아서 둘다 처리할 수 있도록하고 인터페이스 적절히 수정

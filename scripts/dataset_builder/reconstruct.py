@@ -11,7 +11,7 @@ sys.path.insert(0, str(root_dir))
 sys.path.insert(1, str(root_dir / "src"))
 
 # internal
-from src.dataset.reconstruct_document import reconstruct_paper
+from src.dataset.reconstructor import reconstruct_paper
 from src.utils.logger_factory import log
 
 
