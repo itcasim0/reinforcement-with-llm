@@ -33,8 +33,13 @@ python -m venv .venv
 
 ### 3. 의존성 설치
 ```powershell
-uv sync
+uv pip install -r requirements.txt
 ```
+또는
+```powershell
+pip install -r requirements.txt
+```
+* uv sync를 할 경우, torch 관련하여 GPU버전 설치가 제대로 되지 않음 (이래저래 설정해봐도 잘 안됨...)
 
 ### 4. 환경 변수 설정
 `.env.example` 파일을 참고하여 `.env` 파일을 생성하고 API 키를 설정합니다.
