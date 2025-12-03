@@ -65,11 +65,12 @@ def _global_logger() -> logging.Logger:
     logger = logging.getLogger("main")
     logger.setLevel(DEFAULT_LOG_LEVEL)
 
-    set_stream_handler(logger, DEFAULT_LOG_FORMAT)
+    if not logger.handlers:
+        set_stream_handler(logger, DEFAULT_LOG_FORMAT)
 
-    set_timed_rotating_file_handler(
-        logger, DEFAULT_LOG_PATH, DEFAULT_LOG_FORMAT, "W0", 1
-    )
+        set_timed_rotating_file_handler(
+            logger, DEFAULT_LOG_PATH, DEFAULT_LOG_FORMAT, "W0", 1
+        )
 
     return logger
 
