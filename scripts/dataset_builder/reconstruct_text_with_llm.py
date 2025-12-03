@@ -15,8 +15,8 @@ from datetime import datetime
 import re
 import random
 
-from llm.core import client
-from utils.logger_factory import log
+from src.llm.core import client
+from src.utils.logger_factory import log
 
 VAGUE_PATTERNS = [
             "일지도 모르는", "일지도 모를", "있을지도 모르는",

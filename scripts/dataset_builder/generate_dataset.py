@@ -15,12 +15,12 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Tuple, Any
 
-from utils.logger_factory import log
+from src.utils.logger_factory import log
 
-from config.paths import DATA_DIR
-from dataloader.reconstruct_loader import DomesticReconstructDataLoader
-from environments.editing_env.components.component import Document
-from environments.editing_env.components.editor import DocumentEditor
+from src.config.paths import DATA_DIR
+from src.dataloader.reconstruct_loader import DomesticReconstructDataLoader
+from src.environments.editing_env.components.component import Document
+from src.environments.editing_env.components.editor import DocumentEditor
 
 # 사용할 액션 4개 (순서 그대로 product에 사용)
 ACTIONS = [
