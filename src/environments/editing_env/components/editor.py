@@ -322,7 +322,6 @@ class HybridDocumentEditor(DocumentEditor):
             if sequence is not None:
                 edited_text = sequence.get("output_text", "")
                 if not edited_text:
-                    log.warning("교정된 텍스트가 없습니다. LLM 호출로 대체합니다.")
                     raise ValueError("캐시에 output_text가 없음")
 
                 cost_info = sequence.get("cost_info", {})
@@ -333,8 +332,11 @@ class HybridDocumentEditor(DocumentEditor):
                     cost_info = {"used_cost": self.base_cost, "total_tokens": None}
 
                 return edited_text, cost_info
+        except ValueError as e:
+            log.warning(f"교정된 텍스트가 없습니다. LLM 호출로 대체합니다.: {e}")
+
         except Exception as e:
-            log.info(f"캐시 로더에서 알 수 없는 오류 발생: {e}")
+            log.warning(f"캐시 로더에서 알 수 없는 오류 발생: {e}")
 
         # 캐시에 없으면 LLM 호출하여 실시간 편집
 
