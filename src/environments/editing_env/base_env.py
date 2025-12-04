@@ -40,6 +40,8 @@ class EditingEnv:
         editor_model: str = "google/gemma-3-27b-it",
         base_cost: float = 0.02,
         step_penalty: float = 0.1,  # step 하나 당 패널티
+        use_cache: bool = True,
+        save_to_cache: bool = True,
     ):
         self.dataloader = dataloader
         self.max_steps = max_steps
@@ -49,6 +51,10 @@ class EditingEnv:
         self.cost_lambda = cost_lambda
         self.repeat_penalty = repeat_penalty
         self.step_penalty = step_penalty
+
+        # editor 관련 설정
+        self.use_cache = use_cache
+        self.save_to_cache = save_to_cache
 
         # 문서별 idx 부여
         self.doc_idxes = [idx for idx in range(dataloader.docs_count)]
@@ -137,7 +143,11 @@ class EditingEnv:
 
     def _edit(self) -> Tuple[str, Dict]:
         return self.editor.edit(
-            self.current_doc_id, self.current_text, self.action_history
+            self.current_doc_id,
+            self.current_text,
+            self.action_history,
+            use_cache=self.use_cache,
+            save_to_cache=self.save_to_cache,
         )
 
     def step(

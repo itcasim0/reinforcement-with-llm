@@ -475,17 +475,31 @@ class PPORunner:
         PPO 학습 루프
 
         Args:
-            num_episodes: 총 학습할 에피소드 수
+            num_episodes: 최종 목표 에피소드 번호 (체크포인트에서 이어서 하는 경우, 이 번호까지 학습)
             checkpoint_dir: 체크포인트를 저장할 디렉토리 (None이면 저장 안 함)
             checkpoint_interval: 체크포인트 저장 주기 (에피소드 단위)
             log_interval: 로그 출력 주기 (에피소드 단위)
             trajectory_save_interval: Trajectory 정보 저장 주기 (에피소드 단위)
         """
+        # num_episodes 유효성 검증
+        if num_episodes <= self.start_episode:
+            raise ValueError(
+                f"num_episodes({num_episodes})는 start_episode({self.start_episode})보다 커야 합니다. "
+                f"현재 {self.start_episode}까지 진행되었으므로, num_episodes를 {self.start_episode + 1} 이상으로 설정하세요."
+            )
+
         # 체크포인트 세션 디렉토리 초기화 (학습 시작 시 한 번만)
         if checkpoint_dir and self.checkpoint_session_dir is None:
             self.checkpoint_session_dir = Path(checkpoint_dir) / f"{today_datetime()}"
             self.checkpoint_session_dir.mkdir(parents=True, exist_ok=True)
             log.info(f"체크포인트 세션 디렉토리 생성: {self.checkpoint_session_dir}")
+
+        # 학습 진행 정보 로그
+        episodes_to_train = num_episodes - self.start_episode
+        log.info(
+            f"학습 시작: 에피소드 {self.start_episode + 1} ~ {num_episodes} "
+            f"(총 {episodes_to_train}개 에피소드 학습 예정)"
+        )
 
         reward_history = []
         # Visualization 기록용
@@ -493,10 +507,12 @@ class PPORunner:
         critic_loss_history = []
         entropy_history = []
 
+        # 전체 학습 시작 시간 기록
+        total_start_time = time.time()
 
-        for ep in range(self.start_episode + 1, self.start_episode + num_episodes + 1):
+        for ep in range(self.start_episode + 1, num_episodes + 1):
             ep_start_time = time.time()
-            
+
             traj = self._collect_trajectory()
             ep_return = sum(traj["rewards"])
             reward_history.append(ep_return)
@@ -514,7 +530,6 @@ class PPORunner:
             actor_loss_history.append(loss_info["actor_loss"])
             critic_loss_history.append(loss_info["critic_loss"])
             entropy_history.append(loss_info["entropy"])
-
 
             if ep % log_interval == 0:
                 ep_elapsed_time = time.time() - ep_start_time
@@ -537,27 +552,46 @@ class PPORunner:
 
         # 학습 종료 시 최종 체크포인트 저장
         if checkpoint_dir:
-            self.save_checkpoint(checkpoint_dir, self.start_episode + num_episodes)
+            self.save_checkpoint(checkpoint_dir, num_episodes)
 
             # 학습 로그 저장 (추가)
             log_data = {
-                'episodes': list(range(self.start_episode + 1, self.start_episode + num_episodes + 1)),
-                'returns': reward_history,
-                'actor_losses': actor_loss_history,
-                'critic_losses': critic_loss_history,
-                'entropies': entropy_history
+                "episodes": list(range(self.start_episode + 1, num_episodes + 1)),
+                "returns": reward_history,
+                "actor_losses": actor_loss_history,
+                "critic_losses": critic_loss_history,
+                "entropies": entropy_history,
             }
-            with open(self.checkpoint_session_dir / 'training_log.json', 'w') as f:
+            with open(self.checkpoint_session_dir / "training_log.json", "w") as f:
                 json.dump(log_data, f, indent=2)
-            
-            log.info(f"학습 로그 저장: {self.checkpoint_session_dir / 'training_log.json'}")
+
+            log.info(
+                f"학습 로그 저장: {self.checkpoint_session_dir / 'training_log.json'}"
+            )
+
+        # 전체 학습 시간 계산 및 출력
+        total_elapsed_time = time.time() - total_start_time
+        hours = int(total_elapsed_time // 3600)
+        minutes = int((total_elapsed_time % 3600) // 60)
+        seconds = total_elapsed_time % 60
+
+        log.info(
+            f"학습 완료: 에피소드 {self.start_episode + 1} ~ {num_episodes} "
+            f"(총 {num_episodes - self.start_episode}개 에피소드 학습 완료)"
+        )
+        log.info(
+            f"총 학습 시간: {hours}시간 {minutes}분 {seconds:.2f}초 "
+            f"(총 {total_elapsed_time:.2f}초)"
+        )
 
         return reward_history
 
     # -----------------------------
     # Greedy 평가
     # -----------------------------
-    def evaluate_greedy(self, doc_index: int = None):
+    def evaluate_greedy(
+        self, doc_index: int = None, use_cache=False, save_to_cache=False
+    ):
         """
         학습된 정책을 greedy로 평가:
         - 각 step에서 argmax(logits)로 행동 선택
@@ -568,6 +602,10 @@ class PPORunner:
         Returns:
             dict: 평가 결과 정보 (최종 점수, 선택된 액션 등)
         """
+
+        self.env.use_cache = use_cache
+        self.env.save_to_cache = save_to_cache
+
         # 문서 인덱스가 지정된 경우
         if doc_index is not None:
             # 문서 인덱스 유효성 검사

@@ -44,13 +44,13 @@ STEP_PENLTY = 0.1  # step 하나 당 패널티 (ex) reward -= 2step * 패널티)
 
 
 # ========== parameters for train ==========
-CHECKPOINT_DIR = None  # 학습 재개를 위한 설정 (저장된 체크포인트 디렉토리 경로)
+CHECKPOINT_DIR = r"D:\SMC\projects\reinforcement-with-llm\logs\checkpoints\20251204T133523"  # 학습 재개를 위한 설정 (저장된 체크포인트 디렉토리 경로)
 SAVE_CHECKPOINT_DIR = LOGS_DIR / "checkpoints"
-CHECKPOINT_INTERVAL = 1
+CHECKPOINT_INTERVAL = 100
 LOG_INTERVAL = 1
 TRAJECTORY_SAVE_INTERVAL = 1
 
-NUM_EPISODES = 50
+NUM_EPISODES = 1000
 
 # 재현을 위한 랜덤 시드 고정
 random.seed(SEED)
