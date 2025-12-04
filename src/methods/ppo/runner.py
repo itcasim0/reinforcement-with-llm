@@ -554,20 +554,41 @@ class PPORunner:
         if checkpoint_dir:
             self.save_checkpoint(checkpoint_dir, num_episodes)
 
-            # 학습 로그 저장 (추가)
-            log_data = {
-                "episodes": list(range(self.start_episode + 1, num_episodes + 1)),
-                "returns": reward_history,
-                "actor_losses": actor_loss_history,
-                "critic_losses": critic_loss_history,
-                "entropies": entropy_history,
-            }
-            with open(self.checkpoint_session_dir / "training_log.json", "w") as f:
+            # 학습 로그 저장 (이어서 학습하는 경우 기존 로그에 추가)
+            log_file = self.checkpoint_session_dir / "training_log.json"
+            
+            # 기존 로그 파일이 있으면 로드
+            if log_file.exists():
+                with open(log_file, "r") as f:
+                    existing_log = json.load(f)
+                
+                # 기존 데이터에 새로운 데이터 추가
+                existing_log["episodes"].extend(
+                    list(range(self.start_episode + 1, num_episodes + 1))
+                )
+                existing_log["returns"].extend(reward_history)
+                existing_log["actor_losses"].extend(actor_loss_history)
+                existing_log["critic_losses"].extend(critic_loss_history)
+                existing_log["entropies"].extend(entropy_history)
+                
+                log_data = existing_log
+                log.info(f"기존 학습 로그에 추가: {log_file}")
+            else:
+                # 새로운 로그 생성
+                log_data = {
+                    "episodes": list(range(self.start_episode + 1, num_episodes + 1)),
+                    "returns": reward_history,
+                    "actor_losses": actor_loss_history,
+                    "critic_losses": critic_loss_history,
+                    "entropies": entropy_history,
+                }
+                log.info(f"새로운 학습 로그 생성: {log_file}")
+            
+            # 로그 파일 저장
+            with open(log_file, "w") as f:
                 json.dump(log_data, f, indent=2)
 
-            log.info(
-                f"학습 로그 저장: {self.checkpoint_session_dir / 'training_log.json'}"
-            )
+            log.info(f"학습 로그 저장 완료: {log_file}")
 
         # 전체 학습 시간 계산 및 출력
         total_elapsed_time = time.time() - total_start_time

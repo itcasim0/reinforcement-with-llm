@@ -165,7 +165,7 @@ class AbstractQualityEvaluator:
         # 한국어는 1인칭 사용이 더 자연스러울 수 있음
         if self.language == "ko":
             # 한국어는 1인칭을 가점
-            first_person_penalty = max(0, first_person_count)
+            first_person_penalty = min(1.0, first_person_count)
         else:
             first_person_penalty = max(0, 1.0 - first_person_count * 0.2)
 
@@ -251,7 +251,7 @@ class AbstractQualityEvaluator:
         word_freq = Counter(all_words)
         repeated_concepts = [w for w, c in word_freq.items() if c >= 2]
 
-        concept_consistency = max(0, 1.0 - len(repeated_concepts)* 0.1)
+        concept_consistency = max(0, 1.0 - len(repeated_concepts) * 0.1)
 
         clarity_score = (vague_penalty + concept_consistency) / 2
 
