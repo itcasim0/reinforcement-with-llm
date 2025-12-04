@@ -16,7 +16,7 @@ from src.utils.logger_factory import log
 
 def _evaluate_base(text):
     """기본 평가기 - dict 반환"""
-    evaluator = AbstractQualityEvaluator("ko")
+    evaluator = AbstractQualityEvaluator()
     score = evaluator.evaluate_abstract(text)
     return score
 

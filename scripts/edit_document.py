@@ -25,6 +25,9 @@ from src.utils.logger_factory import log
 
 # 재현을 위한 seed 설정
 SEED = 42
+# 재현을 위한 랜덤 시드 고정
+random.seed(SEED)
+torch.manual_seed(SEED)
 
 # 입력 데이터셋 json 파일
 INPUT_DATA = DATA_DIR / "paper_data" / "reconstruct"
@@ -34,7 +37,7 @@ TERMINAL_THRESHOLD = 9.5  # 문서의 종합 품질 점수에 따라 종료할 �
 REAPEAT_PANELTY = 0.5  # 반복 액션에 대한 패널티 정도
 # EDITOR_MODEL = "google/gemma-3-27b-it"  # 액션에 대한 LLM(or SLM)
 # EDITOR_MODEL = "qwen/qwen3-8b"  # 조금 더 성능이 좋지 않은 모델로 실험하기 위함
-EDITOR_MODEL = "google/gemma-3n-e4b-it" # qwen3-8b는 thinking모델로 스스로 생각하는 시간 때문에 너무 느림
+EDITOR_MODEL = "google/gemma-3n-e4b-it"  # qwen3-8b는 thinking모델로 스스로 생각하는 시간 때문에 너무 느림
 
 # 학습 시 LLM 비용에 대한 가중치로, COST_LAMBDA만큼 step마다 사용한 실제 비용에 곱하여 패널티 부과
 # NOTE: 현재 LLM 비용 패널티는 고정해두었으니 튜닝하지 말 것
@@ -42,19 +45,26 @@ COST_LAMBDA = 1.0
 
 STEP_PENLTY = 0.1  # step 하나 당 패널티 (ex) reward -= 2step * 패널티)
 
+MAX_STEPS = 5  # 한 1 episode당 허용할 최대 step 수
 
 # ========== parameters for train ==========
-CHECKPOINT_DIR = r"D:\SMC\projects\reinforcement-with-llm\logs\checkpoints\20251204T133523"  # 학습 재개를 위한 설정 (저장된 체크포인트 디렉토리 경로)
+# CHECKPOINT_DIR = r"D:\SMC\projects\reinforcement-with-llm\logs\checkpoints\20251204T133523"  # 학습 재개를 위한 설정 (저장된 체크포인트 디렉토리 경로)
+CHECKPOINT_DIR = None
 SAVE_CHECKPOINT_DIR = LOGS_DIR / "checkpoints"
 CHECKPOINT_INTERVAL = 100
-LOG_INTERVAL = 1
+LOG_INTERVAL = 10
 TRAJECTORY_SAVE_INTERVAL = 1
+
+BUFFER_SIZE = 16  # 학습 전에 모을 step 수
+BATCH_SIZE = 4  # 미니배치 크기
 
 NUM_EPISODES = 1000
 
-# 재현을 위한 랜덤 시드 고정
-random.seed(SEED)
-torch.manual_seed(SEED)
+# estimator에서 사용하는 값
+GAMMA = 0.95
+GAE_LAMBDA = 0.95
+ENTROPY_COEF = 0.03
+CLIP_EPS = 0.2
 
 
 def main():
@@ -67,7 +77,7 @@ def main():
     log.info("강화학습 환경 구성")
     env = EditingEnv(
         dataloader=dataloader,
-        max_steps=3,
+        max_steps=MAX_STEPS,
         terminal_threshold=TERMINAL_THRESHOLD,
         cost_lambda=COST_LAMBDA,
         repeat_penalty=REAPEAT_PANELTY,  # 반복 액션에 대한 패널티 정도
@@ -79,15 +89,19 @@ def main():
     len_scores = len(fields(DocumentScore))  # 평가 지표 (state)의 개수
     runner = PPORunner(
         env=env,
-        max_steps=3,
+        max_steps=MAX_STEPS,
         state_dim=len_scores
         + 1
-        + env.num_actions,  # g,r,c,o + step + last_action_one_hot
+        + env.num_actions,  # scores + step + last_action_one_hot
         num_actions=env.num_actions,
-        gamma=0.95,
         lr=3e-4,
-        clip_eps=0.2,
-        K_epochs=3,  # 한번의 에피소드 내에서 수행할 신경망 모델 학습 epochs
+        gamma=GAMMA,
+        gae_lambda=GAE_LAMBDA,
+        entropy_coef=ENTROPY_COEF,
+        clip_eps=CLIP_EPS,
+        K_epochs=3,  # PPO 업데이트 반복 횟수
+        buffer_size=BUFFER_SIZE,  # 학습 전에 모을 step 수
+        batch_size=BATCH_SIZE,  # 미니배치 크기
     )
 
     # 체크포인트에서 재개
@@ -110,7 +124,6 @@ def main():
     # 평가 시작
     log.info("평가")
     runner.evaluate_greedy()
-
     return
 
 

@@ -4,59 +4,16 @@ from typing import Dict
 from collections import Counter
 
 # internal
-from utils.logger_factory import log
-
 from .evaluation_config import KoreanEvaluationConfig
 
 
 class AbstractQualityEvaluator:
     """
     논문 초록의 품질을 객관적으로 평가하는 클래스 (영어/한국어 지원)
-
-    Parameters:
-        language (str): 'en' (영어, 기본값) 또는 'ko' (한국어)
-
-    Usage:
-        # 영어 논문 평가
-        evaluator = AbstractQualityEvaluator(language='en')
-
-        # 한국어 논문 평가
-        evaluator = AbstractQualityEvaluator(language='ko')
     """
 
-    def __init__(self, language="en"):
-        """
-        Args:
-            language: 'en' (영어) 또는 'ko' (한국어)
-        """
-        self.language = language.lower()
-
-        if self.language == "en":
-            self._init_english_keywords()
-        elif self.language == "ko":
-            self._init_korean_keywords()
-        else:
-            raise ValueError(
-                f"지원하지 않는 언어: {language}. 'en' 또는 'ko'를 사용하세요."
-            )
-
-    def _init_english_keywords(self):
-        """영어 키워드 초기화"""
-        config = KoreanEvaluationConfig
-
-        self.structure_keywords = config.STRUCTURE_KEYWORDS
-        self.academic_connectives = config.ACADEMIC_CONNECTIVES
-        self.first_person = config.FIRST_PERSON
-        self.passive_indicators = config.PASSIVE_INDICATORS
-        self.filler_words = config.FILLER_WORDS
-        self.vague_terms = config.VAGUE_TERMS
-
-        # 길이 기준
-        self.optimal_word_count_min = config.OPTIMAL_WORD_COUNT_MIN
-        self.optimal_word_count_max = config.OPTIMAL_WORD_COUNT_MAX
-        self.optimal_words_per_sentence_min = config.OPTIMAL_WORDS_PER_SENTENCE_MIN
-        self.optimal_words_per_sentence_max = config.OPTIMAL_WORDS_PER_SENTENCE_MAX
-        self.target_words_per_sentence = config.TARGET_WORDS_PER_SENTENCE
+    def __init__(self):
+        self._init_korean_keywords()
 
     def _init_korean_keywords(self):
         """한국어 키워드 초기화"""
@@ -78,15 +35,10 @@ class AbstractQualityEvaluator:
 
     def evaluate_structure_completeness(self, abstract: str) -> Dict[str, float]:
         """구조적 완성도 평가"""
-        if self.language == "en":
-            abstract_lower = abstract.lower()
-        else:
-            abstract_lower = abstract  # 한국어는 대소문자 구분 없음
-
         scores = {}
 
         for section, keywords in self.structure_keywords.items():
-            keyword_count = sum(1 for kw in keywords if kw in abstract_lower)
+            keyword_count = sum(1 for kw in keywords if kw in abstract)
 
             scores[section] = min(1.0, keyword_count)
 
@@ -148,29 +100,19 @@ class AbstractQualityEvaluator:
 
     def evaluate_academic_style(self, abstract: str) -> Dict[str, float]:
         """학술적 표현 평가"""
-        if self.language == "en":
-            abstract_lower = abstract.lower()
-        else:
-            abstract_lower = abstract
 
         # 연결어
         connective_count = sum(
-            1 for conn in self.academic_connectives if conn in abstract_lower
+            1 for conn in self.academic_connectives if conn in abstract
         )
         connective_score = min(1.0, connective_count)
 
         # 1인칭 사용
-        first_person_count = sum(abstract_lower.count(fp) for fp in self.first_person)
-
-        # 한국어는 1인칭 사용이 더 자연스러울 수 있음
-        if self.language == "ko":
-            # 한국어는 1인칭을 가점
-            first_person_penalty = min(1.0, first_person_count)
-        else:
-            first_person_penalty = max(0, 1.0 - first_person_count * 0.2)
+        first_person_count = sum(abstract.count(fp) for fp in self.first_person)
+        first_person_penalty = min(1.0, first_person_count)
 
         # 수동태/피동
-        passive_count = sum(abstract_lower.count(pi) for pi in self.passive_indicators)
+        passive_count = sum(abstract.count(pi) for pi in self.passive_indicators)
         passive_score = min(1.0, passive_count)
 
         academic_score = (connective_score + first_person_penalty + passive_score) / 3
@@ -202,10 +144,7 @@ class AbstractQualityEvaluator:
         # 불필요한 수식어
         filler_count = 0
         for fw in self.filler_words:
-            if self.language == "en":
-                filler_count += abstract.lower().count(f" {fw} ")
-            else:
-                filler_count += abstract.count(fw)
+            filler_count += abstract.count(fw)
 
         filler_penalty = max(0, 1.0 - filler_count * 0.1)
 
@@ -221,18 +160,11 @@ class AbstractQualityEvaluator:
 
     def evaluate_clarity(self, abstract: str) -> Dict[str, float]:
         """명확성 평가"""
-        if self.language == "en":
-            abstract_lower = abstract.lower()
-        else:
-            abstract_lower = abstract
 
         # 모호한 표현
         vague_count = 0
         for vt in self.vague_terms:
-            if self.language == "en":
-                vague_count += abstract_lower.count(f" {vt} ")
-            else:
-                vague_count += abstract_lower.count(vt)
+            vague_count += abstract.count(vt)
 
         vague_penalty = max(0, 1.0 - vague_count * 0.1)
 
@@ -241,11 +173,8 @@ class AbstractQualityEvaluator:
 
         all_words = []
         for sent in sentences:
-            if self.language == "en":
-                words = [w.lower() for w in re.findall(r"\b\w+\b", sent) if len(w) > 4]
-            else:
-                # 한국어: 형태소 단위가 아닌 어절 단위로 (간단한 처리)
-                words = [w for w in sent.split() if len(w) > 1]
+            # 한국어: 형태소 단위가 아닌 어절 단위로 (간단한 처리)
+            words = [w for w in sent.split() if len(w) > 1]
             all_words.extend(words)
 
         word_freq = Counter(all_words)
@@ -295,7 +224,6 @@ class AbstractQualityEvaluator:
             "information_density": density,
             "clarity": clarity,
             "grade": self._score_to_grade(overall_score),
-            "language": self.language,
         }
 
     def _score_to_grade(self, score: float) -> str:

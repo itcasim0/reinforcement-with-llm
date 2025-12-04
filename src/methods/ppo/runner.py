@@ -18,6 +18,7 @@ from utils.util import today_datetime
 from utils.logger_factory import log
 
 from .policy import PPOPolicy
+from .estimators import compute_gae
 
 
 class PPORunner:
@@ -42,9 +43,13 @@ class PPORunner:
         state_dim: int,  # = 4 + 1 + num_actions
         num_actions: int,
         gamma: float = 0.95,
+        gae_lambda: float = 0.95,
+        entropy_coef: float = 0.01,
         lr: float = 3e-4,
         clip_eps: float = 0.2,
         K_epochs: int = 3,
+        buffer_size: int = 256,
+        batch_size: int = 32,
     ):
         # 디바이스 설정 (CUDA 사용 가능하면 CUDA, 아니면 CPU)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -60,8 +65,12 @@ class PPORunner:
 
         # PPOPolicy(신경망 모델) 하이퍼파라미터
         self.gamma = gamma
+        self.gae_lambda = gae_lambda
         self.clip_eps = clip_eps
+        self.entropy_coef = entropy_coef
         self.K_epochs = K_epochs
+        self.buffer_size = buffer_size  # 학습 전에 모을 step 수
+        self.batch_size = batch_size  # 미니배치 크기
 
         self.policy = PPOPolicy(state_dim=state_dim, num_actions=num_actions).to(
             self.device
@@ -124,7 +133,6 @@ class PPORunner:
     # -----------------------------
     # trajectory 수집
     # -----------------------------
-    # TODO: trajectory를 1번(episode 1개) 수집하고 바로 학습하는 상태이므로, 여러 번 수집 후 학습하는 방향도 검토할 것
     def _collect_trajectory(self):
         """
         에피소드 하나를 rollout:
@@ -186,37 +194,58 @@ class PPORunner:
         return traj
 
     # -----------------------------
-    # return & advantage 계산 (MC 버전)
+    # 여러 trajectory 합치기
     # -----------------------------
-    def compute_gae(self, rewards, values, dones):
+    def _merge_trajectories(self, trajs: list) -> dict:
         """
-        간단 버전: GAE 대신, MC return + advantage = R - V.
+        여러 trajectory를 하나로 합침
+
+        Args:
+            trajs: trajectory 딕셔너리 리스트
+
+        Returns:
+            합쳐진 trajectory 딕셔너리
         """
-        returns = []
-        G = 0.0
-        for r, done in zip(reversed(rewards), reversed(dones)):
-            if done:
-                G = 0.0
-            G = r + self.gamma * G
-            returns.append(G)
-        returns.reverse()
-        returns = torch.tensor(returns, dtype=torch.float32, device=self.device)
-        values_t = torch.tensor(values, dtype=torch.float32, device=self.device)
-        advantages = returns - values_t
+        merged = {
+            "obs": [],
+            "states": [],
+            "actions": [],
+            "log_probs": [],
+            "rewards": [],
+            "dones": [],
+            "values": [],
+            "infos": [],
+        }
 
-        if advantages.numel() > 1:
-            advantages = (advantages - advantages.mean()) / (
-                advantages.std(unbiased=False) + 1e-8
-            )
-        else:
-            advantages = advantages - advantages.mean()
+        for traj in trajs:
+            merged["obs"].extend(traj["obs"])
+            merged["states"].extend(traj["states"])
+            merged["actions"].extend(traj["actions"])
+            merged["log_probs"].extend(traj["log_probs"])
+            merged["rewards"].extend(traj["rewards"])
+            merged["dones"].extend(traj["dones"])
+            merged["values"].extend(traj["values"])
+            merged["infos"].extend(traj["infos"])
 
-        return returns, advantages
+        return merged
 
     # -----------------------------
     # PPO 업데이트
     # -----------------------------
-    def ppo_update(self, traj):
+    def ppo_update(self, trajs):
+        """
+        여러 trajectory를 사용하여 PPO 업데이트 수행 (미니배치 학습)
+
+        Args:
+            trajs: trajectory 딕셔너리 또는 trajectory 딕셔너리 리스트
+        """
+        # 단일 trajectory인 경우 리스트로 변환
+        if isinstance(trajs, dict):
+            trajs = [trajs]
+
+        # 여러 trajectory를 하나로 합침
+        traj = self._merge_trajectories(trajs)
+
         obs_list = traj["obs"]
         actions = traj["actions"]
         old_log_probs = traj["log_probs"]
@@ -230,46 +259,70 @@ class PPORunner:
             old_log_probs, dtype=torch.float32, device=self.device
         )  # (T,)
 
-        returns, advantages = self.compute_gae(rewards, values, dones)
+        returns, advantages = compute_gae(
+            rewards, values, dones, self.gamma, self.gae_lambda, self.device
+        )
 
-        # 마지막 epoch의 loss 값들을 저장
-        final_actor_loss = 0.0
-        final_critic_loss = 0.0
-        final_entropy = 0.0
-        final_total_loss = 0.0
+        # 전체 데이터 크기
+        total_steps = obs_t.size(0)
+        
+        # 평균 loss 값들을 저장
+        epoch_actor_losses = []
+        epoch_critic_losses = []
+        epoch_entropies = []
+        epoch_total_losses = []
 
-        for _ in range(self.K_epochs):
-            logits, value_preds = self.policy(obs_t)
-            dist = Categorical(logits=logits)
-            new_log_probs = dist.log_prob(actions_t)
-            entropy = dist.entropy().mean()
+        for epoch in range(self.K_epochs):
+            # 인덱스 셔플
+            indices = torch.randperm(total_steps)
+            
+            # 미니배치로 나눠서 학습
+            for start_idx in range(0, total_steps, self.batch_size):
+                end_idx = min(start_idx + self.batch_size, total_steps)
+                batch_indices = indices[start_idx:end_idx]
+                
+                # 미니배치 데이터 추출
+                batch_obs = obs_t[batch_indices]
+                batch_actions = actions_t[batch_indices]
+                batch_old_log_probs = old_log_probs_t[batch_indices]
+                batch_returns = returns[batch_indices]
+                batch_advantages = advantages[batch_indices]
+                
+                # Forward pass
+                logits, value_preds = self.policy(batch_obs)
+                dist = Categorical(logits=logits)
+                new_log_probs = dist.log_prob(batch_actions)
+                entropy = dist.entropy().mean()
 
-            ratios = torch.exp(new_log_probs - old_log_probs_t)
-            surr1 = ratios * advantages
-            surr2 = (
-                torch.clamp(ratios, 1.0 - self.clip_eps, 1.0 + self.clip_eps)
-                * advantages
-            )
-            actor_loss = -torch.min(surr1, surr2).mean()
-            critic_loss = nn.MSELoss()(value_preds, returns)
+                # PPO loss 계산
+                ratios = torch.exp(new_log_probs - batch_old_log_probs)
+                surr1 = ratios * batch_advantages
+                surr2 = (
+                    torch.clamp(ratios, 1.0 - self.clip_eps, 1.0 + self.clip_eps)
+                    * batch_advantages
+                )
+                actor_loss = -torch.min(surr1, surr2).mean()
+                critic_loss = nn.MSELoss()(value_preds, batch_returns)
 
-            loss = actor_loss + 0.5 * critic_loss - 0.01 * entropy
+                loss = actor_loss + 0.5 * critic_loss - self.entropy_coef * entropy
 
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+                # Backward pass
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
 
-            # 마지막 epoch의 loss 저장
-            final_actor_loss = actor_loss.item()
-            final_critic_loss = critic_loss.item()
-            final_entropy = entropy.item()
-            final_total_loss = loss.item()
+                # loss 기록
+                epoch_actor_losses.append(actor_loss.item())
+                epoch_critic_losses.append(critic_loss.item())
+                epoch_entropies.append(entropy.item())
+                epoch_total_losses.append(loss.item())
 
+        # 평균 loss 계산
         return {
-            "actor_loss": final_actor_loss,
-            "critic_loss": final_critic_loss,
-            "entropy": final_entropy,
-            "total_loss": final_total_loss,
+            "actor_loss": sum(epoch_actor_losses) / len(epoch_actor_losses),
+            "critic_loss": sum(epoch_critic_losses) / len(epoch_critic_losses),
+            "entropy": sum(epoch_entropies) / len(epoch_entropies),
+            "total_loss": sum(epoch_total_losses) / len(epoch_total_losses),
         }
 
     # -----------------------------
@@ -363,7 +416,9 @@ class PPORunner:
             )
 
         log.info(f"체크포인트 로드: {checkpoint_file}")
-        checkpoint = torch.load(checkpoint_file, map_location=self.device)
+        checkpoint = torch.load(
+            checkpoint_file, map_location=self.device, weights_only=False
+        )
 
         # 모델 및 옵티마이저 상태 복원
         self.policy.load_state_dict(checkpoint["policy_state_dict"])
@@ -385,9 +440,66 @@ class PPORunner:
         return self.start_episode
 
     # -----------------------------
+    # 학습 로그 저장
+    # -----------------------------
+    def save_training_log(
+        self,
+        reward_history: list,
+        actor_loss_history: list,
+        critic_loss_history: list,
+        entropy_history: list,
+        start_episode: int,
+        end_episode: int,
+    ):
+        """
+        학습 로그를 JSON 파일로 저장
+
+        Args:
+            reward_history: 에피소드별 보상 기록
+            actor_loss_history: Actor loss 기록
+            critic_loss_history: Critic loss 기록
+            entropy_history: Entropy 기록
+            start_episode: 현재 세션의 시작 에피소드
+            end_episode: 현재까지 진행된 마지막 에피소드
+        """
+        if self.checkpoint_session_dir is None:
+            log.warning("체크포인트 세션 디렉토리가 설정되지 않았습니다.")
+            return
+
+        log_file = self.checkpoint_session_dir / "training_log.json"
+
+        # 기존 로그 파일이 있으면 로드
+        if log_file.exists():
+            with open(log_file, "r") as f:
+                existing_log = json.load(f)
+
+            # 기존 데이터에 새로운 데이터 추가
+            existing_log["episodes"].extend(list(range(start_episode, end_episode + 1)))
+            existing_log["returns"].extend(reward_history)
+            existing_log["actor_losses"].extend(actor_loss_history)
+            existing_log["critic_losses"].extend(critic_loss_history)
+            existing_log["entropies"].extend(entropy_history)
+
+            log_data = existing_log
+        else:
+            # 새로운 로그 생성
+            log_data = {
+                "episodes": list(range(start_episode, end_episode + 1)),
+                "returns": reward_history,
+                "actor_losses": actor_loss_history,
+                "critic_losses": critic_loss_history,
+                "entropies": entropy_history,
+            }
+
+        # 로그 파일 저장
+        with open(log_file, "w") as f:
+            json.dump(log_data, f, indent=2)
+
+    # -----------------------------
     # Trajectory 정보 저장
     # -----------------------------
     def save_trajectory_info(self, checkpoint_dir: str, episode: int, traj: dict):
+
         """
         에피소드의 trajectory 정보를 JSON 파일로 저장
 
@@ -497,7 +609,7 @@ class PPORunner:
         # 학습 진행 정보 로그
         episodes_to_train = num_episodes - self.start_episode
         log.info(
-            f"학습 시작: 에피소드 {self.start_episode + 1} ~ {num_episodes} "
+            f"에피소드 {self.start_episode + 1} ~ {num_episodes} "
             f"(총 {episodes_to_train}개 에피소드 학습 예정)"
         )
 
@@ -510,12 +622,21 @@ class PPORunner:
         # 전체 학습 시작 시간 기록
         total_start_time = time.time()
 
+        # trajectory 버퍼 (buffer_size만큼 step을 쌓아두고 학습)
+        traj_buffer = []
+        buffer_step_count = 0  # 현재 버퍼에 쌓인 step 수
+
         for ep in range(self.start_episode + 1, num_episodes + 1):
             ep_start_time = time.time()
 
+            # trajectory 수집
             traj = self._collect_trajectory()
             ep_return = sum(traj["rewards"])
             reward_history.append(ep_return)
+
+            # 버퍼에 추가
+            traj_buffer.append(traj)
+            buffer_step_count += len(traj["rewards"])
 
             # 최고 점수 갱신 및 저장
             is_best = False
@@ -525,16 +646,41 @@ class PPORunner:
                 if checkpoint_dir:
                     self.save_checkpoint(checkpoint_dir, ep, is_best=True)
 
-            loss_info = self.ppo_update(traj)
-            # Visualization 기록 저장
-            actor_loss_history.append(loss_info["actor_loss"])
-            critic_loss_history.append(loss_info["critic_loss"])
-            entropy_history.append(loss_info["entropy"])
+            # buffer_size만큼 step이 쌓였거나 마지막 에피소드인 경우 학습 수행
+            should_update = (buffer_step_count >= self.buffer_size) or (ep == num_episodes)
+
+            if should_update:
+                loss_info = self.ppo_update(traj_buffer)
+                # Visualization 기록 저장
+                actor_loss_history.append(loss_info["actor_loss"])
+                critic_loss_history.append(loss_info["critic_loss"])
+                entropy_history.append(loss_info["entropy"])
+
+                # 버퍼 초기화
+                traj_buffer = []
+                buffer_step_count = 0
+            else:
+                # 학습하지 않은 에피소드는 이전 loss 값으로 기록
+                if len(actor_loss_history) > 0:
+                    actor_loss_history.append(actor_loss_history[-1])
+                    critic_loss_history.append(critic_loss_history[-1])
+                    entropy_history.append(entropy_history[-1])
+                else:
+                    actor_loss_history.append(0.0)
+                    critic_loss_history.append(0.0)
+                    entropy_history.append(0.0)
+                loss_info = {
+                    "total_loss": 0.0 if len(actor_loss_history) == 1 else actor_loss_history[-1] + 0.5 * critic_loss_history[-1] - self.entropy_coef * entropy_history[-1],
+                    "actor_loss": actor_loss_history[-1],
+                    "critic_loss": critic_loss_history[-1],
+                    "entropy": entropy_history[-1],
+                }
 
             if ep % log_interval == 0:
                 ep_elapsed_time = time.time() - ep_start_time
+                update_status = f"[학습 수행]" if should_update else f"[데이터 수집 {buffer_step_count}/{self.buffer_size} steps]"
                 log.info(
-                    f"[Episode {ep}] return = {ep_return:.3f}, len = {len(traj['rewards'])}, "
+                    f"[Episode {ep}] {update_status} return = {ep_return:.3f}, len = {len(traj['rewards'])}, "
                     f"time = {ep_elapsed_time:.2f}s, "
                     f"loss = {loss_info['total_loss']:.4f} "
                     f"(actor: {loss_info['actor_loss']:.4f}, critic: {loss_info['critic_loss']:.4f}, entropy: {loss_info['entropy']:.4f})"
@@ -549,6 +695,16 @@ class PPORunner:
                 # 이미 best로 저장했으면 중복 저장 방지 (선택사항이지만 파일IO 줄이기 위해)
                 if not is_best:
                     self.save_checkpoint(checkpoint_dir, ep)
+                
+                # 학습 로그도 주기적으로 저장
+                self.save_training_log(
+                    reward_history=reward_history,
+                    actor_loss_history=actor_loss_history,
+                    critic_loss_history=critic_loss_history,
+                    entropy_history=entropy_history,
+                    start_episode=self.start_episode + 1,
+                    end_episode=ep,
+                )
 
         # 학습 종료 시 최종 체크포인트 저장
         if checkpoint_dir:
@@ -556,12 +712,12 @@ class PPORunner:
 
             # 학습 로그 저장 (이어서 학습하는 경우 기존 로그에 추가)
             log_file = self.checkpoint_session_dir / "training_log.json"
-            
+
             # 기존 로그 파일이 있으면 로드
             if log_file.exists():
                 with open(log_file, "r") as f:
                     existing_log = json.load(f)
-                
+
                 # 기존 데이터에 새로운 데이터 추가
                 existing_log["episodes"].extend(
                     list(range(self.start_episode + 1, num_episodes + 1))
@@ -570,7 +726,7 @@ class PPORunner:
                 existing_log["actor_losses"].extend(actor_loss_history)
                 existing_log["critic_losses"].extend(critic_loss_history)
                 existing_log["entropies"].extend(entropy_history)
-                
+
                 log_data = existing_log
                 log.info(f"기존 학습 로그에 추가: {log_file}")
             else:
@@ -583,7 +739,7 @@ class PPORunner:
                     "entropies": entropy_history,
                 }
                 log.info(f"새로운 학습 로그 생성: {log_file}")
-            
+
             # 로그 파일 저장
             with open(log_file, "w") as f:
                 json.dump(log_data, f, indent=2)

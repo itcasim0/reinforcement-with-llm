@@ -48,7 +48,7 @@ class DocumentEvaluator:
 
     def __init__(self):
 
-        self.abstract_evaluator = AbstractQualityEvaluator(language="ko")
+        self.abstract_evaluator = AbstractQualityEvaluator()
 
     def score(self, document) -> DocumentScore:
         """
