@@ -2,6 +2,7 @@ from typing import Tuple
 from pathlib import Path
 import json
 from dataclasses import fields
+import time
 
 # external
 import torch
@@ -494,6 +495,8 @@ class PPORunner:
 
 
         for ep in range(self.start_episode + 1, self.start_episode + num_episodes + 1):
+            ep_start_time = time.time()
+            
             traj = self._collect_trajectory()
             ep_return = sum(traj["rewards"])
             reward_history.append(ep_return)
@@ -514,8 +517,10 @@ class PPORunner:
 
 
             if ep % log_interval == 0:
+                ep_elapsed_time = time.time() - ep_start_time
                 log.info(
                     f"[Episode {ep}] return = {ep_return:.3f}, len = {len(traj['rewards'])}, "
+                    f"time = {ep_elapsed_time:.2f}s, "
                     f"loss = {loss_info['total_loss']:.4f} "
                     f"(actor: {loss_info['actor_loss']:.4f}, critic: {loss_info['critic_loss']:.4f}, entropy: {loss_info['entropy']:.4f})"
                 )

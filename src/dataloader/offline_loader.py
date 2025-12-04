@@ -28,27 +28,6 @@ class OfflineDocumentLoader:
         # 문서 개수
         self.total_docs = len(self.jsonl_paths)
 
-        # TODO: 추후 제거
-        self.sequences, self.action_index = self._load_data()
-
-    # TODO: 추후 제거
-    def _load_data(self):
-
-        # JSONL 파일 로드
-        sequences = []
-        action_index = {}
-        with open(self.jsonl_paths[0], "r", encoding="utf-8") as f:
-            for line in f:
-                if line.strip():
-                    record = json.loads(line)
-                    sequences.append(record)
-
-                    # actions로 인덱싱 (튜플로 변환하여 hashable하게 만듦)
-                    actions_tuple = tuple(record["actions"])
-                    action_index[actions_tuple] = record
-
-        return sequences, action_index
-
     def get_sequence_by_actions(self, actions: List[str] | Tuple[str]) -> Dict:
         """
         주어진 actions를 key로 하여 해당하는 sequence id 리스트를 반환합니다.

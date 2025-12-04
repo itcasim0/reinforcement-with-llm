@@ -33,7 +33,8 @@ INPUT_DATA = DATA_DIR / "paper_data" / "reconstruct"
 TERMINAL_THRESHOLD = 9.5  # 문서의 종합 품질 점수에 따라 종료할 한계점
 REAPEAT_PANELTY = 0.5  # 반복 액션에 대한 패널티 정도
 # EDITOR_MODEL = "google/gemma-3-27b-it"  # 액션에 대한 LLM(or SLM)
-EDITOR_MODEL = "qwen/qwen3-8b"  # 조금 더 성능이 좋지 않은 모델로 실험하기 위함
+# EDITOR_MODEL = "qwen/qwen3-8b"  # 조금 더 성능이 좋지 않은 모델로 실험하기 위함
+EDITOR_MODEL = "google/gemma-3n-e4b-it" # qwen3-8b는 thinking모델로 스스로 생각하는 시간 때문에 너무 느림
 
 # 학습 시 LLM 비용에 대한 가중치로, COST_LAMBDA만큼 step마다 사용한 실제 비용에 곱하여 패널티 부과
 # NOTE: 현재 LLM 비용 패널티는 고정해두었으니 튜닝하지 말 것
