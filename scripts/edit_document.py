@@ -55,8 +55,9 @@ CHECKPOINT_INTERVAL = 100
 LOG_INTERVAL = 10
 TRAJECTORY_SAVE_INTERVAL = 1
 
-BUFFER_SIZE = 16  # 학습 전에 모을 step 수
-BATCH_SIZE = 4  # 미니배치 크기
+BUFFER_SIZE = 32  # 학습 전에 모을 step 수
+BATCH_SIZE = 16  # 미니배치 크기
+K_EPOCHS = 2 # BUFFER_SIZE만큼 쌓인 후 update하는 횟수
 
 NUM_EPISODES = 1000
 
@@ -99,7 +100,7 @@ def main():
         gae_lambda=GAE_LAMBDA,
         entropy_coef=ENTROPY_COEF,
         clip_eps=CLIP_EPS,
-        K_epochs=3,  # PPO 업데이트 반복 횟수
+        K_epochs=K_EPOCHS,  # PPO 업데이트 반복 횟수
         buffer_size=BUFFER_SIZE,  # 학습 전에 모을 step 수
         batch_size=BATCH_SIZE,  # 미니배치 크기
     )
