@@ -4,23 +4,12 @@ import numpy as np
 from pathlib import Path
 import sys
 
+# 프로젝트 루트를 sys.path에 추가
+project_root = Path(__file__).resolve().parents[2]
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
-def get_latest_checkpoint(base_dir: str = "logs/checkpoints") -> Path:
-    """가장 최근 체크포인트 찾기"""
-    checkpoint_path = Path(base_dir)
-    
-    if not checkpoint_path.exists():
-        raise FileNotFoundError(f"체크포인트 디렉토리가 없습니다: {checkpoint_path}")
-    
-    checkpoint_dirs = [
-        d for d in checkpoint_path.iterdir() 
-        if d.is_dir() and len(d.name) == 15 and 'T' in d.name
-    ]
-    
-    if not checkpoint_dirs:
-        raise FileNotFoundError(f"체크포인트를 찾을 수 없습니다: {checkpoint_path}")
-    
-    return sorted(checkpoint_dirs, key=lambda x: x.name, reverse=True)[0]
+from src.utils.checkpoint_utils import get_latest_checkpoint
 
 
 def smooth_curve(values, window=20):
@@ -53,7 +42,7 @@ def plot_training_improved(log_path):
     # 스타일 설정
     plt.style.use('seaborn-v0_8-darkgrid')
     fig, axes = plt.subplots(2, 2, figsize=(16, 10))
-    fig.suptitle('PPO Training Metrics', fontsize=18, fontweight='bold', y=0.995)
+    fig.suptitle('A2C Training Metrics', fontsize=18, fontweight='bold', y=0.995)
     
     window = 20
     
@@ -214,14 +203,15 @@ def plot_training_improved(log_path):
 
 
 if __name__ == "__main__":
+
+    CHECKPOINTS_DIR = Path("logs") / "checkpoints" / "a2c"
+
     if len(sys.argv) > 1:
         checkpoint_dir = sys.argv[1]
     else:
-
-        checkpoint_dir = get_latest_checkpoint()
+        checkpoint_dir = get_latest_checkpoint(CHECKPOINTS_DIR)
     
     log_path = Path(checkpoint_dir) / "training_log.json"
-    log_path = Path(r"D:\SMC\projects\reinforcement-with-llm\logs\checkpoints\ppo\20251206T101703\training_log.json")
     
     if not log_path.exists():
         sys.exit(1)

@@ -564,17 +564,17 @@ class A2CRunner:
                 if not is_best:
                     self.save_checkpoint(checkpoint_dir, ep)
                 
-                # 마지막 로그 저장 이후의 새로운 데이터만 저장
-                episodes_to_save = ep - self.last_logged_episode
-                self.save_training_log(
-                    reward_history=reward_history[-episodes_to_save:],
-                    actor_loss_history=actor_loss_history[-episodes_to_save:],
-                    critic_loss_history=critic_loss_history[-episodes_to_save:],
-                    entropy_history=entropy_history[-episodes_to_save:],
-                    start_episode=self.last_logged_episode + 1,
-                    end_episode=ep,
-                )
-                self.last_logged_episode = ep
+            # 마지막 로그 저장 이후의 새로운 데이터만 저장
+            episodes_to_save = ep - self.last_logged_episode
+            self.save_training_log(
+                reward_history=reward_history[-episodes_to_save:],
+                actor_loss_history=actor_loss_history[-episodes_to_save:],
+                critic_loss_history=critic_loss_history[-episodes_to_save:],
+                entropy_history=entropy_history[-episodes_to_save:],
+                start_episode=self.last_logged_episode + 1,
+                end_episode=ep,
+            )
+            self.last_logged_episode = ep
 
         # 학습 종료 시 최종 체크포인트 저장
         if checkpoint_dir:

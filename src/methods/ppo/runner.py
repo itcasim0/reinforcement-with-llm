@@ -266,7 +266,7 @@ class PPORunner:
 
         # 전체 데이터 크기
         total_steps = obs_t.size(0)
-        
+
         # 평균 loss 값들을 저장
         epoch_actor_losses = []
         epoch_critic_losses = []
@@ -276,19 +276,19 @@ class PPORunner:
         for epoch in range(self.K_epochs):
             # 인덱스 셔플
             indices = torch.randperm(total_steps)
-            
+
             # 미니배치로 나눠서 학습
             for start_idx in range(0, total_steps, self.batch_size):
                 end_idx = min(start_idx + self.batch_size, total_steps)
                 batch_indices = indices[start_idx:end_idx]
-                
+
                 # 미니배치 데이터 추출
                 batch_obs = obs_t[batch_indices]
                 batch_actions = actions_t[batch_indices]
                 batch_old_log_probs = old_log_probs_t[batch_indices]
                 batch_returns = returns[batch_indices]
                 batch_advantages = advantages[batch_indices]
-                
+
                 # Forward pass
                 logits, value_preds = self.policy(batch_obs)
                 dist = Categorical(logits=logits)
@@ -500,7 +500,6 @@ class PPORunner:
     # Trajectory 정보 저장
     # -----------------------------
     def save_trajectory_info(self, checkpoint_dir: str, episode: int, traj: dict):
-
         """
         에피소드의 trajectory 정보를 JSON 파일로 저장
 
@@ -648,7 +647,9 @@ class PPORunner:
                     self.save_checkpoint(checkpoint_dir, ep, is_best=True)
 
             # buffer_size만큼 step이 쌓였거나 마지막 에피소드인 경우 학습 수행
-            should_update = (buffer_step_count >= self.buffer_size) or (ep == num_episodes)
+            should_update = (buffer_step_count >= self.buffer_size) or (
+                ep == num_episodes
+            )
 
             if should_update:
                 loss_info = self.ppo_update(traj_buffer)
@@ -671,7 +672,13 @@ class PPORunner:
                     critic_loss_history.append(0.0)
                     entropy_history.append(0.0)
                 loss_info = {
-                    "total_loss": 0.0 if len(actor_loss_history) == 1 else actor_loss_history[-1] + 0.5 * critic_loss_history[-1] - self.entropy_coef * entropy_history[-1],
+                    "total_loss": (
+                        0.0
+                        if len(actor_loss_history) == 1
+                        else actor_loss_history[-1]
+                        + 0.5 * critic_loss_history[-1]
+                        - self.entropy_coef * entropy_history[-1]
+                    ),
                     "actor_loss": actor_loss_history[-1],
                     "critic_loss": critic_loss_history[-1],
                     "entropy": entropy_history[-1],
@@ -679,7 +686,11 @@ class PPORunner:
 
             if ep % log_interval == 0:
                 ep_elapsed_time = time.time() - ep_start_time
-                update_status = f"[학습 수행]" if should_update else f"[데이터 수집 {buffer_step_count}/{self.buffer_size} steps]"
+                update_status = (
+                    f"[학습 수행]"
+                    if should_update
+                    else f"[데이터 수집 {buffer_step_count}/{self.buffer_size} steps]"
+                )
                 log.info(
                     f"[Episode {ep}] {update_status} return = {ep_return:.3f}, len = {len(traj['rewards'])}, "
                     f"time = {ep_elapsed_time:.2f}s, "
@@ -696,37 +707,45 @@ class PPORunner:
                 # 이미 best로 저장했으면 중복 저장 방지 (선택사항이지만 파일IO 줄이기 위해)
                 if not is_best:
                     self.save_checkpoint(checkpoint_dir, ep)
-                
-                # 마지막 로그 저장 이후의 새로운 데이터만 저장
-                episodes_to_save = ep - self.last_logged_episode
-                self.save_training_log(
-                    reward_history=reward_history[-episodes_to_save:],
-                    actor_loss_history=actor_loss_history[-episodes_to_save:],
-                    critic_loss_history=critic_loss_history[-episodes_to_save:],
-                    entropy_history=entropy_history[-episodes_to_save:],
-                    start_episode=self.last_logged_episode + 1,
-                    end_episode=ep,
-                )
-                self.last_logged_episode = ep
+
+            # 마지막 로그 저장 이후의 새로운 데이터만 저장
+            episodes_to_save = ep - self.last_logged_episode
+            self.save_training_log(
+                reward_history=reward_history[-episodes_to_save:],
+                actor_loss_history=actor_loss_history[-episodes_to_save:],
+                critic_loss_history=critic_loss_history[-episodes_to_save:],
+                entropy_history=entropy_history[-episodes_to_save:],
+                start_episode=self.last_logged_episode + 1,
+                end_episode=ep,
+            )
+            self.last_logged_episode = ep
 
         # 학습 종료 시 최종 체크포인트 저장
         if checkpoint_dir:
             self.save_checkpoint(checkpoint_dir, num_episodes)
 
             # 마지막 checkpoint_interval 이후의 데이터만 저장
-            last_checkpoint_ep = (num_episodes // checkpoint_interval) * checkpoint_interval
+            last_checkpoint_ep = (
+                num_episodes // checkpoint_interval
+            ) * checkpoint_interval
             if last_checkpoint_ep < num_episodes:
                 # 마지막 checkpoint 이후의 새로운 데이터가 있는 경우에만 저장
                 episodes_since_last_checkpoint = num_episodes - last_checkpoint_ep
                 self.save_training_log(
                     reward_history=reward_history[-episodes_since_last_checkpoint:],
-                    actor_loss_history=actor_loss_history[-episodes_since_last_checkpoint:],
-                    critic_loss_history=critic_loss_history[-episodes_since_last_checkpoint:],
+                    actor_loss_history=actor_loss_history[
+                        -episodes_since_last_checkpoint:
+                    ],
+                    critic_loss_history=critic_loss_history[
+                        -episodes_since_last_checkpoint:
+                    ],
                     entropy_history=entropy_history[-episodes_since_last_checkpoint:],
                     start_episode=last_checkpoint_ep + 1,
                     end_episode=num_episodes,
                 )
-                log.info(f"마지막 {episodes_since_last_checkpoint}개 에피소드 로그 추가 저장")
+                log.info(
+                    f"마지막 {episodes_since_last_checkpoint}개 에피소드 로그 추가 저장"
+                )
 
         # 전체 학습 시간 계산 및 출력
         total_elapsed_time = time.time() - total_start_time

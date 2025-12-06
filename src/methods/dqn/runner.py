@@ -516,16 +516,16 @@ class DQNRunner:
                 if not is_best:
                     self.save_checkpoint(checkpoint_dir, ep)
 
-                # 마지막 로그 저장 이후의 새로운 데이터만 저장
-                episodes_to_save = ep - self.last_logged_episode
-                self.save_training_log(
-                    reward_history=reward_history[-episodes_to_save:],
-                    loss_history=loss_history[-episodes_to_save:],
-                    epsilon_history=epsilon_history[-episodes_to_save:],
-                    start_episode=self.last_logged_episode + 1,
-                    end_episode=ep,
-                )
-                self.last_logged_episode = ep
+            # 마지막 로그 저장 이후의 새로운 데이터만 저장
+            episodes_to_save = ep - self.last_logged_episode
+            self.save_training_log(
+                reward_history=reward_history[-episodes_to_save:],
+                loss_history=loss_history[-episodes_to_save:],
+                epsilon_history=epsilon_history[-episodes_to_save:],
+                start_episode=self.last_logged_episode + 1,
+                end_episode=ep,
+            )
+            self.last_logged_episode = ep
 
         # 학습 종료
         if checkpoint_dir:
