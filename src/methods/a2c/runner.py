@@ -78,6 +78,7 @@ class A2CRunner:
         self.start_episode = 0  # 학습 시작 에피소드 번호
         self.checkpoint_session_dir = None  # 현재 학습 세션의 체크포인트 디렉토리
         self.best_score = -float("inf")  # 최고 점수 기록
+        self.last_logged_episode = 0  # 마지막으로 로그 저장한 에피소드
 
     def _build_obs(
         self,
@@ -563,51 +564,36 @@ class A2CRunner:
                 if not is_best:
                     self.save_checkpoint(checkpoint_dir, ep)
                 
-                # 학습 로그도 주기적으로 저장
+                # 마지막 로그 저장 이후의 새로운 데이터만 저장
+                episodes_to_save = ep - self.last_logged_episode
                 self.save_training_log(
-                    reward_history=reward_history,
-                    actor_loss_history=actor_loss_history,
-                    critic_loss_history=critic_loss_history,
-                    entropy_history=entropy_history,
-                    start_episode=self.start_episode + 1,
+                    reward_history=reward_history[-episodes_to_save:],
+                    actor_loss_history=actor_loss_history[-episodes_to_save:],
+                    critic_loss_history=critic_loss_history[-episodes_to_save:],
+                    entropy_history=entropy_history[-episodes_to_save:],
+                    start_episode=self.last_logged_episode + 1,
                     end_episode=ep,
                 )
+                self.last_logged_episode = ep
 
         # 학습 종료 시 최종 체크포인트 저장
         if checkpoint_dir:
             self.save_checkpoint(checkpoint_dir, num_episodes)
 
-            # 학습 로그 저장
-            log_file = self.checkpoint_session_dir / "training_log.json"
-
-            if log_file.exists():
-                with open(log_file, "r") as f:
-                    existing_log = json.load(f)
-
-                existing_log["episodes"].extend(
-                    list(range(self.start_episode + 1, num_episodes + 1))
+            # 마지막 checkpoint_interval 이후의 데이터만 저장
+            last_checkpoint_ep = (num_episodes // checkpoint_interval) * checkpoint_interval
+            if last_checkpoint_ep < num_episodes:
+                # 마지막 checkpoint 이후의 새로운 데이터가 있는 경우에만 저장
+                episodes_since_last_checkpoint = num_episodes - last_checkpoint_ep
+                self.save_training_log(
+                    reward_history=reward_history[-episodes_since_last_checkpoint:],
+                    actor_loss_history=actor_loss_history[-episodes_since_last_checkpoint:],
+                    critic_loss_history=critic_loss_history[-episodes_since_last_checkpoint:],
+                    entropy_history=entropy_history[-episodes_since_last_checkpoint:],
+                    start_episode=last_checkpoint_ep + 1,
+                    end_episode=num_episodes,
                 )
-                existing_log["returns"].extend(reward_history)
-                existing_log["actor_losses"].extend(actor_loss_history)
-                existing_log["critic_losses"].extend(critic_loss_history)
-                existing_log["entropies"].extend(entropy_history)
-
-                log_data = existing_log
-                log.info(f"기존 학습 로그에 추가: {log_file}")
-            else:
-                log_data = {
-                    "episodes": list(range(self.start_episode + 1, num_episodes + 1)),
-                    "returns": reward_history,
-                    "actor_losses": actor_loss_history,
-                    "critic_losses": critic_loss_history,
-                    "entropies": entropy_history,
-                }
-                log.info(f"새로운 학습 로그 생성: {log_file}")
-
-            with open(log_file, "w") as f:
-                json.dump(log_data, f, indent=2)
-
-            log.info(f"학습 로그 저장 완료: {log_file}")
+                log.info(f"마지막 {episodes_since_last_checkpoint}개 에피소드 로그 추가 저장")
 
         # 전체 학습 시간 계산 및 출력
         total_elapsed_time = time.time() - total_start_time
@@ -632,6 +618,7 @@ class A2CRunner:
         """
         학습된 정책을 greedy로 평가:
         - 각 step에서 argmax(logits)로 행동 선택
+        - 가장 최근 학습된 best checkpoint를 자동으로 로드하여 평가
 
         Args:
             doc_index: 평가할 문서의 인덱스 (None이면 환경의 기본 reset() 사용)
@@ -639,6 +626,14 @@ class A2CRunner:
         Returns:
             dict: 평가 결과 정보 (최종 점수, 선택된 액션 등)
         """
+        # best checkpoint 자동 로드
+        if self.checkpoint_session_dir is not None:
+            try:
+                log.info("Best checkpoint 로드 시도...")
+                self.load_checkpoint(str(self.checkpoint_session_dir), load_best=True)
+            except FileNotFoundError as e:
+                log.warning(f"Best checkpoint를 찾을 수 없습니다: {e}")
+                log.info("현재 메모리의 모델로 평가를 진행합니다.")
 
         self.env.use_cache = use_cache
         self.env.save_to_cache = save_to_cache

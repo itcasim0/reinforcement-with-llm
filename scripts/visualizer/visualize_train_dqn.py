@@ -40,20 +40,19 @@ def remove_outliers(values, threshold=3):
 
 
 def plot_training_improved(log_path):
-    """개선된 학습 로그 시각화"""
+    """개선된 DQN 학습 로그 시각화"""
     with open(log_path) as f:
         data = json.load(f)
     
     episodes = np.array(data['episodes'])
     returns = np.array(data['returns'])
-    actor_losses = np.array(data['actor_losses'])
-    critic_losses = np.array(data['critic_losses'])
-    entropies = np.array(data['entropies'])
+    losses = np.array(data['losses'])
+    epsilons = np.array(data['epsilons'])
     
     # 스타일 설정
     plt.style.use('seaborn-v0_8-darkgrid')
     fig, axes = plt.subplots(2, 2, figsize=(16, 10))
-    fig.suptitle('PPO Training Metrics', fontsize=18, fontweight='bold', y=0.995)
+    fig.suptitle('DQN Training Metrics', fontsize=18, fontweight='bold', y=0.995)
     
     window = 20
     
@@ -87,26 +86,26 @@ def plot_training_improved(log_path):
     ax.grid(True, alpha=0.4, linestyle='--')
     
     # 최종 평균 표시
-    final_mean = np.mean(returns[-100:])
+    final_mean = np.mean(returns[-100:]) if len(returns) >= 100 else np.mean(returns)
     ax.text(0.02, 0.98, f'Final 100-ep avg: {final_mean:.3f}', 
             transform=ax.transAxes, fontsize=10, verticalalignment='top',
             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
     
-    # 2) Actor Loss (smoothed + outlier removed)
+    # 2) Q-Network Loss (smoothed + outlier removed)
     ax = axes[0, 1]
     
     # 이상치 제거
-    actor_losses_clean = remove_outliers(actor_losses, threshold=3)
+    losses_clean = remove_outliers(losses, threshold=3)
     
-    ax.plot(episodes, actor_losses_clean, alpha=0.2, linewidth=0.5, 
+    ax.plot(episodes, losses_clean, alpha=0.2, linewidth=0.5, 
             color='green', label='Raw (outliers removed)')
     
-    if len(actor_losses) > window:
+    if len(losses) > window:
         # NaN 무시하고 이동평균
         smoothed = []
-        for i in range(len(actor_losses)):
+        for i in range(len(losses)):
             start = max(0, i - window + 1)
-            window_data = actor_losses_clean[start:i+1]
+            window_data = losses_clean[start:i+1]
             window_data = window_data[~np.isnan(window_data)]
             if len(window_data) > 0:
                 smoothed.append(np.mean(window_data))
@@ -119,69 +118,93 @@ def plot_training_improved(log_path):
     ax.axhline(y=0, color='black', linestyle='--', linewidth=1, alpha=0.3)
     ax.set_xlabel('Episode', fontsize=11, fontweight='bold')
     ax.set_ylabel('Loss', fontsize=11, fontweight='bold')
-    ax.set_title('Actor Loss', fontsize=13, fontweight='bold', pad=10)
-    ax.legend(loc='upper right', framealpha=0.9)
-    ax.grid(True, alpha=0.4, linestyle='--')
-    
-    # 3) Critic Loss (outlier 제거 + y축 제한)
-    ax = axes[1, 0]
-    
-    # 이상치 제거
-    critic_losses_clean = remove_outliers(critic_losses, threshold=3)
-    
-    ax.plot(episodes, critic_losses_clean, alpha=0.2, linewidth=0.5, 
-            color='orange', label='Raw (outliers removed)')
-    
-    if len(critic_losses) > window:
-        smoothed = []
-        for i in range(len(critic_losses)):
-            start = max(0, i - window + 1)
-            window_data = critic_losses_clean[start:i+1]
-            window_data = window_data[~np.isnan(window_data)]
-            if len(window_data) > 0:
-                smoothed.append(np.mean(window_data))
-            else:
-                smoothed.append(np.nan)
-        
-        ax.plot(episodes, smoothed, color='#e67e22', linewidth=2.5, 
-                label=f'{window}-episode MA', zorder=10)
-    
-    ax.axhline(y=0, color='black', linestyle='--', linewidth=1, alpha=0.3)
-    ax.set_xlabel('Episode', fontsize=11, fontweight='bold')
-    ax.set_ylabel('Loss', fontsize=11, fontweight='bold')
-    ax.set_title('Critic Loss', fontsize=13, fontweight='bold', pad=10)
+    ax.set_title('Q-Network Loss (MSE)', fontsize=13, fontweight='bold', pad=10)
     ax.legend(loc='upper right', framealpha=0.9)
     ax.grid(True, alpha=0.4, linestyle='--')
     
     # y축 범위 제한 (99 percentile 기준)
-    valid_losses = critic_losses_clean[~np.isnan(critic_losses_clean)]
+    valid_losses = losses_clean[~np.isnan(losses_clean)]
     if len(valid_losses) > 0:
         y_max = np.percentile(valid_losses, 99)
         ax.set_ylim(bottom=-0.1, top=y_max * 1.1)
     
-    # 4) Policy Entropy
-    ax = axes[1, 1]
-    ax.plot(episodes, entropies, alpha=0.3, linewidth=0.5, 
-            color='purple', label='Raw')
-    
-    if len(entropies) > window:
-        smoothed = smooth_curve(entropies, window)
-        ax.plot(episodes[window-1:], smoothed, color='#8e44ad', linewidth=2.5, 
-                label=f'{window}-episode MA', zorder=10)
+    # 3) Epsilon (탐색 정도)
+    ax = axes[1, 0]
+    ax.plot(episodes, epsilons, color='#8e44ad', linewidth=2.0, label='Epsilon')
     
     ax.set_xlabel('Episode', fontsize=11, fontweight='bold')
-    ax.set_ylabel('Entropy', fontsize=11, fontweight='bold')
-    ax.set_title('Policy Entropy', 
+    ax.set_ylabel('Epsilon', fontsize=11, fontweight='bold')
+    ax.set_title('Exploration Rate (Epsilon)', 
                  fontsize=13, fontweight='bold', pad=10)
     ax.legend(loc='upper right', framealpha=0.9)
     ax.grid(True, alpha=0.4, linestyle='--')
     
-    # 초기/최종 entropy 표시
-    initial_entropy = np.mean(entropies[:50])
-    final_entropy = np.mean(entropies[-50:])
-    ax.text(0.02, 0.98, f'Initial: {initial_entropy:.3f}\nFinal: {final_entropy:.3f}', 
+    # 초기/최종 epsilon 표시
+    initial_epsilon = epsilons[0] if len(epsilons) > 0 else 0
+    final_epsilon = epsilons[-1] if len(epsilons) > 0 else 0
+    ax.text(0.02, 0.98, f'Initial: {initial_epsilon:.3f}\nFinal: {final_epsilon:.3f}', 
             transform=ax.transAxes, fontsize=10, verticalalignment='top',
             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    
+    # 4) 학습 진행 통계
+    ax = axes[1, 1]
+    ax.axis('off')
+    
+    # 통계 정보 계산
+    total_episodes = len(episodes)
+    initial_100_mean = np.mean(returns[:100]) if len(returns) >= 100 else np.mean(returns[:len(returns)])
+    initial_100_std = np.std(returns[:100]) if len(returns) >= 100 else np.std(returns[:len(returns)])
+    final_100_mean = np.mean(returns[-100:]) if len(returns) >= 100 else np.mean(returns[-len(returns):])
+    final_100_std = np.std(returns[-100:]) if len(returns) >= 100 else np.std(returns[-len(returns):])
+    improvement = final_100_mean - initial_100_mean
+    
+    best_return = np.max(returns)
+    worst_return = np.min(returns)
+    avg_return = np.mean(returns)
+    
+    valid_losses = losses_clean[~np.isnan(losses_clean)]
+    avg_loss = np.mean(valid_losses) if len(valid_losses) > 0 else 0
+    final_100_loss = np.mean(valid_losses[-100:]) if len(valid_losses) >= 100 else np.mean(valid_losses) if len(valid_losses) > 0 else 0
+    
+    epsilon_decay_rate = (initial_epsilon - final_epsilon) / initial_epsilon * 100 if initial_epsilon > 0 else 0
+    
+    # 텍스트 정보 구성
+    stats_text = f"""DQN 학습 통계 요약
+
+{'='*40}
+Episode 정보
+{'='*40}
+총 에피소드: {total_episodes}
+
+{'='*40}
+Returns
+{'='*40}
+초기 100-ep 평균: {initial_100_mean:.3f} ± {initial_100_std:.3f}
+최종 100-ep 평균: {final_100_mean:.3f} ± {final_100_std:.3f}
+개선도: {improvement:+.3f}
+
+최고 Return: {best_return:.3f}
+최저 Return: {worst_return:.3f}
+전체 평균: {avg_return:.3f}
+
+{'='*40}
+Q-Network Loss
+{'='*40}
+전체 평균: {avg_loss:.4f}
+최종 100-ep: {final_100_loss:.4f}
+
+{'='*40}
+탐색 (Epsilon)
+{'='*40}
+초기: {initial_epsilon:.3f}
+최종: {final_epsilon:.3f}
+감소율: {epsilon_decay_rate:.1f}%
+"""
+    
+    ax.text(0.05, 0.95, stats_text, 
+            transform=ax.transAxes, fontsize=10, verticalalignment='top',
+            fontfamily='monospace',
+            bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8))
     
     plt.tight_layout()
     save_path = Path(log_path).parent / 'training_metrics.png'
@@ -191,24 +214,25 @@ def plot_training_improved(log_path):
     
     # 학습 요약 통계
     print("\n" + "="*60)
-    print("학습 요약 통계")
+    print("DQN 학습 요약 통계")
     print("="*60)
-    print(f"총 에피소드: {len(episodes)}")
+    print(f"총 에피소드: {total_episodes}")
     print(f"\nReturns:")
-    print(f"  초기 100-ep 평균: {np.mean(returns[:100]):.3f} ± {np.std(returns[:100]):.3f}")
-    print(f"  최종 100-ep 평균: {np.mean(returns[-100:]):.3f} ± {np.std(returns[-100:]):.3f}")
-    print(f"  개선도: {np.mean(returns[-100:]) - np.mean(returns[:100]):+.3f}")
+    print(f"  초기 100-ep 평균: {initial_100_mean:.3f} ± {initial_100_std:.3f}")
+    print(f"  최종 100-ep 평균: {final_100_mean:.3f} ± {final_100_std:.3f}")
+    print(f"  개선도: {improvement:+.3f}")
+    print(f"  최고: {best_return:.3f}")
+    print(f"  최저: {worst_return:.3f}")
     
-    print(f"\nEntropy (탐험 정도):")
-    print(f"  초기 50-ep: {np.mean(entropies[:50]):.3f}")
-    print(f"  최종 50-ep: {np.mean(entropies[-50:]):.3f}")
-    print(f"  감소율: {(1 - np.mean(entropies[-50:]) / np.mean(entropies[:50])) * 100:.1f}%")
+    print(f"\nEpsilon (탐색 정도):")
+    print(f"  초기: {initial_epsilon:.3f}")
+    print(f"  최종: {final_epsilon:.3f}")
+    print(f"  감소율: {epsilon_decay_rate:.1f}%")
     
-    valid_critic = critic_losses_clean[~np.isnan(critic_losses_clean)]
-    if len(valid_critic) > 0:
-        print(f"\nCritic Loss:")
-        print(f"  평균: {np.mean(valid_critic):.4f}")
-        print(f"  최종 100-ep: {np.mean(valid_critic[-100:]):.4f}")
+    if len(valid_losses) > 0:
+        print(f"\nQ-Network Loss:")
+        print(f"  평균: {avg_loss:.4f}")
+        print(f"  최종 100-ep: {final_100_loss:.4f}")
     
     print("="*60)
 
@@ -217,13 +241,12 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         checkpoint_dir = sys.argv[1]
     else:
-
         checkpoint_dir = get_latest_checkpoint()
     
     log_path = Path(checkpoint_dir) / "training_log.json"
-    log_path = Path(r"D:\SMC\projects\reinforcement-with-llm\logs\checkpoints\ppo\20251206T101703\training_log.json")
     
     if not log_path.exists():
+        print(f"학습 로그 파일을 찾을 수 없습니다: {log_path}")
         sys.exit(1)
     
     plot_training_improved(log_path)

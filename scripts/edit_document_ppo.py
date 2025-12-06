@@ -43,23 +43,23 @@ EDITOR_MODEL = "google/gemma-3n-e4b-it"  # qwen3-8b는 thinking모델로 스스�
 # NOTE: 현재 LLM 비용 패널티는 고정해두었으니 튜닝하지 말 것
 COST_LAMBDA = 1.0
 
-STEP_PENLTY = 0.1  # step 하나 당 패널티 (ex) reward -= 2step * 패널티)
+STEP_PENLTY = 0.09  # step 하나 당 패널티 (ex) reward -= 2step * 패널티)
 
 MAX_STEPS = 5  # 한 1 episode당 허용할 최대 step 수
 
 # ========== parameters for train ==========
 # CHECKPOINT_DIR = r"D:\SMC\projects\reinforcement-with-llm\logs\checkpoints\20251204T133523"  # 학습 재개를 위한 설정 (저장된 체크포인트 디렉토리 경로)
 CHECKPOINT_DIR = None
-SAVE_CHECKPOINT_DIR = LOGS_DIR / "checkpoints"
-CHECKPOINT_INTERVAL = 100
+SAVE_CHECKPOINT_DIR = LOGS_DIR / "checkpoints" / "ppo"
+CHECKPOINT_INTERVAL = 1
 LOG_INTERVAL = 10
 TRAJECTORY_SAVE_INTERVAL = 1
 
 BUFFER_SIZE = 32  # 학습 전에 모을 step 수
 BATCH_SIZE = 16  # 미니배치 크기
-K_EPOCHS = 2 # BUFFER_SIZE만큼 쌓인 후 update하는 횟수
+K_EPOCHS = 2  # BUFFER_SIZE만큼 쌓인 후 update하는 횟수
 
-NUM_EPISODES = 1000
+NUM_EPISODES = 100
 
 # estimator에서 사용하는 값
 GAMMA = 0.95

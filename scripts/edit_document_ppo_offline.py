@@ -35,7 +35,7 @@ EDITOR_MODEL = "qwen/qwen3-8b"  # 조금 더 성능이 좋지 않은 모델로 �
 # NOTE: 현재 LLM 비용 패널티는 고정해두었으니 튜닝하지 말 것
 COST_LAMBDA = 1.0
 
-STEP_PENLTY = 0.1  # step 하나 당 패널티 (ex) reward -= 2step * 패널티)
+STEP_PENLTY = 0.09  # step 하나 당 패널티 (ex) reward -= 2step * 패널티)
 
 # JSONL_PATH = DATA_DIR / "paper_data" / "sequences_20251128_014521_tmp.jsonl"
 # JSONL_PATH = DATA_DIR / "paper_data" / "offline" / "sequences_20251128_014521_tmp.jsonl"
