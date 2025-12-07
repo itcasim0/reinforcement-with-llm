@@ -10,7 +10,7 @@ from dataclasses import fields
 import torch
 
 # 프로젝트 루트를 Python 경로에 추가
-root_dir = Path(__file__).resolve().parent.parent
+root_dir = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(root_dir))
 sys.path.insert(1, str(root_dir / "src"))
 
@@ -48,11 +48,11 @@ STEP_PENLTY = 0.09  # step 하나 당 패널티 (ex) reward -= 2step * 패널티
 MAX_STEPS = 5  # 한 1 episode당 허용할 최대 step 수
 
 # ========== parameters for train ==========
-CHECKPOINT_DIR = r"D:\SMC\projects\reinforcement-with-llm\logs\checkpoints\ppo\20251206T121931"  # 학습 재개를 위한 설정 (저장된 체크포인트 디렉토리 경로)
-# CHECKPOINT_DIR = None
+# CHECKPOINT_DIR = r"D:\SMC\projects\reinforcement-with-llm\logs\checkpoints\ppo\20251206T121931"  # 학습 재개를 위한 설정 (저장된 체크포인트 디렉토리 경로)
+CHECKPOINT_DIR = None
 SAVE_CHECKPOINT_DIR = LOGS_DIR / "checkpoints" / "ppo"
-CHECKPOINT_INTERVAL = 10
-LOG_INTERVAL = 10
+CHECKPOINT_INTERVAL = 100
+LOG_INTERVAL = 100
 TRAJECTORY_SAVE_INTERVAL = 1
 
 BUFFER_SIZE = 32  # 학습 전에 모을 step 수

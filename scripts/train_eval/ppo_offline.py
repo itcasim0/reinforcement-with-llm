@@ -54,7 +54,7 @@ LOG_INTERVAL = 100
 
 BUFFER_SIZE = 3  # 학습 전에 모을 step 수
 BATCH_SIZE = 3  # 미니배치 크기
-K_EPOCHS = 2  # BUFFER_SIZE만큼 쌓인 후 update하는 횟수
+K_EPOCHS = 3  # BUFFER_SIZE만큼 쌓인 후 update하는 횟수
 
 NUM_EPISODES = 1000
 

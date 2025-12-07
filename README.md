@@ -152,8 +152,8 @@ python scripts/train_eval/dqn.py
 ```python
 python scripts/visualizer/train_log_ppo_offline.py
 python scripts/visualizer/train_log_ppo.py
-python scripts/visualizer/train_log_ppo.py
-python scripts/visualizer/train_log_ppo.py
+python scripts/visualizer/train_log_a2c.py
+python scripts/visualizer/train_log_dqn.py
 ```
 
 ## 프로젝트 구조
