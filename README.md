@@ -211,15 +211,11 @@ reinforcement-with-llm/
 │   │   ├── ppo_offline.py        # 오프라인 PPO 학습
 │   │   └── ppo.py                # 온라인 PPO 학습
 │   └── visualizer/               # 시각화
-│       ├── action_patterns.py    # 액션 패턴 분석
-│       ├── impact.py             # 영향도 분석
 │       ├── train_log_a2c.py      # A2C 학습 로그
 │       ├── train_log_dqn.py      # DQN 학습 로그
 │       ├── train_log_ppo_offline.py  # 오프라인 PPO 로그
 │       └── train_log_ppo.py      # 온라인 PPO 로그
 ├── data/                         # 데이터 디렉토리
 │   └── paper_data/               # 논문 데이터
-├── logs/                         # 로그 및 체크포인트
-└── references/                   # 참고 논문
-    └── 2506.09033v2.pdf          # Router-R1 논문
+└── logs/                         # 로그 및 체크포인트
 ```
