@@ -1,8 +1,8 @@
 .vscode
 data/*
-!.gitkeep
-logs/
+logs/*
 .env
+!.gitkeep
 
 
 # Byte-compiled / optimized / DLL files
