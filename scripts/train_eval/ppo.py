@@ -48,8 +48,8 @@ STEP_PENLTY = 0.09  # step 하나 당 패널티 (ex) reward -= 2step * 패널티
 MAX_STEPS = 5  # 한 1 episode당 허용할 최대 step 수
 
 # ========== parameters for train ==========
-# CHECKPOINT_DIR = r"D:\SMC\projects\reinforcement-with-llm\logs\checkpoints\20251204T133523"  # 학습 재개를 위한 설정 (저장된 체크포인트 디렉토리 경로)
-CHECKPOINT_DIR = None
+CHECKPOINT_DIR = r"D:\SMC\projects\reinforcement-with-llm\logs\checkpoints\ppo\20251206T121931"  # 학습 재개를 위한 설정 (저장된 체크포인트 디렉토리 경로)
+# CHECKPOINT_DIR = None
 SAVE_CHECKPOINT_DIR = LOGS_DIR / "checkpoints" / "ppo"
 CHECKPOINT_INTERVAL = 10
 LOG_INTERVAL = 10

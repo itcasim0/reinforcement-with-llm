@@ -359,6 +359,7 @@ class A2CRunner:
         actor_loss_history: list,
         critic_loss_history: list,
         entropy_history: list,
+        total_loss_history: list,
         start_episode: int,
         end_episode: int,
     ):
@@ -370,6 +371,7 @@ class A2CRunner:
             actor_loss_history: Actor loss 기록
             critic_loss_history: Critic loss 기록
             entropy_history: Entropy 기록
+            total_loss_history: Total loss 기록
             start_episode: 현재 세션의 시작 에피소드
             end_episode: 현재까지 진행된 마지막 에피소드
         """
@@ -390,6 +392,7 @@ class A2CRunner:
             existing_log["actor_losses"].extend(actor_loss_history)
             existing_log["critic_losses"].extend(critic_loss_history)
             existing_log["entropies"].extend(entropy_history)
+            existing_log["total_losses"].extend(total_loss_history)
 
             log_data = existing_log
         else:
@@ -400,6 +403,7 @@ class A2CRunner:
                 "actor_losses": actor_loss_history,
                 "critic_losses": critic_loss_history,
                 "entropies": entropy_history,
+                "total_losses": total_loss_history,
             }
 
         # 로그 파일 저장
@@ -520,6 +524,7 @@ class A2CRunner:
         actor_loss_history = []
         critic_loss_history = []
         entropy_history = []
+        total_loss_history = []
 
         # 전체 학습 시작 시간 기록
         total_start_time = time.time()
@@ -537,6 +542,7 @@ class A2CRunner:
             actor_loss_history.append(loss_info["actor_loss"])
             critic_loss_history.append(loss_info["critic_loss"])
             entropy_history.append(loss_info["entropy"])
+            total_loss_history.append(loss_info["total_loss"])
 
             # 최고 점수 갱신 및 저장
             is_best = False
@@ -571,6 +577,7 @@ class A2CRunner:
                 actor_loss_history=actor_loss_history[-episodes_to_save:],
                 critic_loss_history=critic_loss_history[-episodes_to_save:],
                 entropy_history=entropy_history[-episodes_to_save:],
+                total_loss_history=total_loss_history[-episodes_to_save:],
                 start_episode=self.last_logged_episode + 1,
                 end_episode=ep,
             )
@@ -590,6 +597,7 @@ class A2CRunner:
                     actor_loss_history=actor_loss_history[-episodes_since_last_checkpoint:],
                     critic_loss_history=critic_loss_history[-episodes_since_last_checkpoint:],
                     entropy_history=entropy_history[-episodes_since_last_checkpoint:],
+                    total_loss_history=total_loss_history[-episodes_since_last_checkpoint:],
                     start_episode=last_checkpoint_ep + 1,
                     end_episode=num_episodes,
                 )

@@ -20,28 +20,39 @@ class OfflineEditingEnv(EditingEnv):
         *args,
         **kwargs,
     ):
+        # OfflineDocumentLoader의 속성명에 맞게 docs_count, doc_ids 속성 추가
+        if not hasattr(dataloader, 'docs_count'):
+            dataloader.docs_count = dataloader.total_docs
+        if not hasattr(dataloader, 'doc_ids'):
+            dataloader.doc_ids = [i for i in range(dataloader.total_docs)]
+        # OfflineDocumentLoader에는 dict_to_document 메서드가 없으므로 추가
+        if not hasattr(dataloader, 'dict_to_document'):
+            def dict_to_document(data, text_type=None):
+                # OfflineDocumentLoader는 {"base_text": ..., "action_sequences": ...} 형태 반환
+                if isinstance(data, dict) and "base_text" in data:
+                    return Document(data["base_text"])
+                return Document("")
+            dataloader.dict_to_document = dict_to_document
+        # OfflineDocumentLoader에는 load_by_index 대신 get_by_index를 사용
+        if not hasattr(dataloader, 'load_by_index'):
+            dataloader.load_by_index = dataloader.get_by_index
+        
         super().__init__(dataloader=dataloader, *args, **kwargs)
 
         if use_single_sequence:
             log.info("단일 문서 학습 환경 초기화 중...")
-            self.documents = [self.documents[fixed_sequence_idx]]
+            # documents 리스트를 미리 로드하지 않으므로 doc_idxes만 필터링
             self.doc_idxes = [fixed_sequence_idx]
+            self.available_doc_idxes = self.doc_idxes.copy()
 
         # OfflineDocumentEditor 교체
         self.editor = OfflineDocumentEditor(dataloader)
+        
+        # doc_index 속성 초기화 (offline_env의 _edit에서 사용)
+        self.doc_index = 0
 
     @override
-    def _load_data(self):
-        doc_idxes = [i for i in range(self.dataloader.total_docs)]
-
-        documents = []
-        for i in doc_idxes:
-            documents.append(Document(self.dataloader.get_by_index(i)["base_text"]))
-
-        return documents, doc_idxes
-
-    @override
-    def _edit(self, _):
+    def _edit(self):
         """
         오프라인 편집 (OfflineDocumentEditor 사용)
         action_history를 전달하여 사전 계산된 결과 조회

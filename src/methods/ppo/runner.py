@@ -40,7 +40,7 @@ class PPORunner:
         self,
         env: EditingEnv | OfflineEditingEnv,
         max_steps: 3,
-        state_dim: int,  # = 4 + 1 + num_actions
+        state_dim: int,
         num_actions: int,
         gamma: float = 0.95,
         gae_lambda: float = 0.95,
@@ -449,6 +449,7 @@ class PPORunner:
         actor_loss_history: list,
         critic_loss_history: list,
         entropy_history: list,
+        total_loss_history: list,
         start_episode: int,
         end_episode: int,
     ):
@@ -460,6 +461,7 @@ class PPORunner:
             actor_loss_history: Actor loss 기록
             critic_loss_history: Critic loss 기록
             entropy_history: Entropy 기록
+            total_loss_history: Total loss 기록
             start_episode: 현재 세션의 시작 에피소드
             end_episode: 현재까지 진행된 마지막 에피소드
         """
@@ -480,6 +482,7 @@ class PPORunner:
             existing_log["actor_losses"].extend(actor_loss_history)
             existing_log["critic_losses"].extend(critic_loss_history)
             existing_log["entropies"].extend(entropy_history)
+            existing_log["total_losses"].extend(total_loss_history)
 
             log_data = existing_log
         else:
@@ -490,6 +493,7 @@ class PPORunner:
                 "actor_losses": actor_loss_history,
                 "critic_losses": critic_loss_history,
                 "entropies": entropy_history,
+                "total_losses": total_loss_history,
             }
 
         # 로그 파일 저장
@@ -618,6 +622,7 @@ class PPORunner:
         actor_loss_history = []
         critic_loss_history = []
         entropy_history = []
+        total_loss_history = []
 
         # 전체 학습 시작 시간 기록
         total_start_time = time.time()
@@ -657,6 +662,7 @@ class PPORunner:
                 actor_loss_history.append(loss_info["actor_loss"])
                 critic_loss_history.append(loss_info["critic_loss"])
                 entropy_history.append(loss_info["entropy"])
+                total_loss_history.append(loss_info["total_loss"])
 
                 # 버퍼 초기화
                 traj_buffer = []
@@ -667,18 +673,14 @@ class PPORunner:
                     actor_loss_history.append(actor_loss_history[-1])
                     critic_loss_history.append(critic_loss_history[-1])
                     entropy_history.append(entropy_history[-1])
+                    total_loss_history.append(total_loss_history[-1])
                 else:
                     actor_loss_history.append(0.0)
                     critic_loss_history.append(0.0)
                     entropy_history.append(0.0)
+                    total_loss_history.append(0.0)
                 loss_info = {
-                    "total_loss": (
-                        0.0
-                        if len(actor_loss_history) == 1
-                        else actor_loss_history[-1]
-                        + 0.5 * critic_loss_history[-1]
-                        - self.entropy_coef * entropy_history[-1]
-                    ),
+                    "total_loss": total_loss_history[-1],
                     "actor_loss": actor_loss_history[-1],
                     "critic_loss": critic_loss_history[-1],
                     "entropy": entropy_history[-1],
@@ -715,6 +717,7 @@ class PPORunner:
                 actor_loss_history=actor_loss_history[-episodes_to_save:],
                 critic_loss_history=critic_loss_history[-episodes_to_save:],
                 entropy_history=entropy_history[-episodes_to_save:],
+                total_loss_history=total_loss_history[-episodes_to_save:],
                 start_episode=self.last_logged_episode + 1,
                 end_episode=ep,
             )
@@ -740,6 +743,9 @@ class PPORunner:
                         -episodes_since_last_checkpoint:
                     ],
                     entropy_history=entropy_history[-episodes_since_last_checkpoint:],
+                    total_loss_history=total_loss_history[
+                        -episodes_since_last_checkpoint:
+                    ],
                     start_episode=last_checkpoint_ep + 1,
                     end_episode=num_episodes,
                 )
@@ -781,14 +787,14 @@ class PPORunner:
         Returns:
             dict: 평가 결과 정보 (최종 점수, 선택된 액션 등)
         """
-        # best checkpoint 자동 로드
-        if self.checkpoint_session_dir is not None:
-            try:
-                log.info("Best checkpoint 로드 시도...")
-                self.load_checkpoint(str(self.checkpoint_session_dir), load_best=True)
-            except FileNotFoundError as e:
-                log.warning(f"Best checkpoint를 찾을 수 없습니다: {e}")
-                log.info("현재 메모리의 모델로 평가를 진행합니다.")
+        # # best checkpoint 자동 로드
+        # if self.checkpoint_session_dir is not None:
+        #     try:
+        #         log.info("Best checkpoint 로드 시도...")
+        #         self.load_checkpoint(str(self.checkpoint_session_dir), load_best=True)
+        #     except FileNotFoundError as e:
+        #         log.warning(f"Best checkpoint를 찾을 수 없습니다: {e}")
+        #         log.info("현재 메모리의 모델로 평가를 진행합니다.")
 
         self.env.use_cache = use_cache
         self.env.save_to_cache = save_to_cache

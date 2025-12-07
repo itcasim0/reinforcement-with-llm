@@ -362,6 +362,7 @@ class DQNRunner:
             existing_log["episodes"].extend(list(range(start_episode, end_episode + 1)))
             existing_log["returns"].extend(reward_history)
             existing_log["losses"].extend(loss_history)
+            existing_log["total_losses"].extend(loss_history)  # DQN은 total_loss = loss
             existing_log["epsilons"].extend(epsilon_history)
 
             log_data = existing_log
@@ -370,6 +371,7 @@ class DQNRunner:
                 "episodes": list(range(start_episode, end_episode + 1)),
                 "returns": reward_history,
                 "losses": loss_history,
+                "total_losses": loss_history,  # DQN은 total_loss = loss
                 "epsilons": epsilon_history,
             }
 

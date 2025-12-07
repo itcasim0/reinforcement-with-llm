@@ -10,7 +10,7 @@ from dataclasses import fields
 import torch
 
 # 프로젝트 루트를 Python 경로에 추가
-root_dir = Path(__file__).resolve().parent.parent
+root_dir = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(root_dir))
 sys.path.insert(1, str(root_dir / "src"))
 
@@ -24,99 +24,109 @@ from src.utils.logger_factory import log
 
 # 재현을 위한 seed 설정
 SEED = 42
+# 재현을 위한 랜덤 시드 고정
+random.seed(SEED)
+torch.manual_seed(SEED)
+
+# 오프라인 데이터 경로 (디렉토리)
+OFFLINE_DATA_PATH = DATA_DIR / "paper_data" / "offline"
 
 # ========== parameters for environment ==========
 TERMINAL_THRESHOLD = 9.5  # 문서의 종합 품질 점수에 따라 종료할 한계점
 REPEAT_PENALTY = 0.5  # 반복 액션에 대한 패널티 정도
-# EDITOR_MODEL = "google/gemma-3-27b-it"  # 액션에 대한 LLM(or SLM)
-EDITOR_MODEL = "qwen/qwen3-8b"  # 조금 더 성능이 좋지 않은 모델로 실험하기 위함
+EDITOR_MODEL = "qwen/qwen3-8b"  # 오프라인 환경에서는 실제로 LLM을 사용하지 않음
 
 # 학습 시 LLM 비용에 대한 가중치로, COST_LAMBDA만큼 step마다 사용한 실제 비용에 곱하여 패널티 부과
 # NOTE: 현재 LLM 비용 패널티는 고정해두었으니 튜닝하지 말 것
 COST_LAMBDA = 1.0
 
-STEP_PENLTY = 0.09  # step 하나 당 패널티 (ex) reward -= 2step * 패널티)
+STEP_PENALTY = 0.09  # step 하나 당 패널티 (ex) reward -= 2step * 패널티)
 
-# JSONL_PATH = DATA_DIR / "paper_data" / "sequences_20251128_014521_tmp.jsonl"
-# JSONL_PATH = DATA_DIR / "paper_data" / "offline" / "sequences_20251128_014521_tmp.jsonl"
-JSONL_PATH = DATA_DIR / "paper_data" / "sequences_data"
+MAX_STEPS = 3  # 한 1 episode당 허용할 최대 step 수
 
 USE_SINGLE_SEQUENCE = True  # 오버피팅 모드 (첫 번째 시퀀스만 사용)
-USE_LLM_JUDGE = False  # False면 rule-based evaluator 사용
-USE_OFFLINE_REWARD = True  # offline_ppo.py 스타일 보상 함수 사용
 
 # ========== parameters for train ==========
 CHECKPOINT_DIR = None  # 학습 재개를 위한 설정 (저장된 체크포인트 디렉토리 경로)
-SAVE_CHECKPOINT_DIR = LOGS_DIR / "checkpoints"
-CHECKPOINT_INTERVAL = 1
+SAVE_CHECKPOINT_DIR = LOGS_DIR / "checkpoints" / "ppo_offline"
+CHECKPOINT_INTERVAL = 100
 LOG_INTERVAL = 100
-TRAJECTORY_SAVE_INTERVAL = 1
+
+BUFFER_SIZE = 3  # 학습 전에 모을 step 수
+BATCH_SIZE = 3  # 미니배치 크기
+K_EPOCHS = 2  # BUFFER_SIZE만큼 쌓인 후 update하는 횟수
 
 NUM_EPISODES = 1000
 
-# 재현을 위한 랜덤 시드 고정
-random.seed(SEED)
-torch.manual_seed(SEED)
+# estimator에서 사용하는 값
+GAMMA = 0.95
+GAE_LAMBDA = 0.95
+ENTROPY_COEF = 0.01
+CLIP_EPS = 0.2
+LR = 3e-4
 
 
 def main():
 
-    # ========== 환경 초기화 ==========
-    log.info("강화 학습 환경 초기화 중...")
-    dataloader = OfflineDocumentLoader(jsonl_path=JSONL_PATH)
+    # load data
+    log.info("데이터 로드")
+    dataloader = OfflineDocumentLoader(jsonl_path=OFFLINE_DATA_PATH)
+
+    # 강화학습 환경 구성
+    log.info("강화학습 환경 구성")
     env = OfflineEditingEnv(
         dataloader=dataloader,
-        max_steps=3,
-        terminal_threshold=TERMINAL_THRESHOLD,  # 추가 (호환성)
+        max_steps=MAX_STEPS,
+        terminal_threshold=TERMINAL_THRESHOLD,
         cost_lambda=COST_LAMBDA,
-        repeat_penalty=REPEAT_PENALTY,  # 반복 액션에 대한 패널티
-        editor_model=EDITOR_MODEL,  # 기존 설정 유지
-        use_single_sequence=False,  # 하나의 데이터만 활용할 경우
-        fixed_sequence_idx=0,  # use_single_sequence가 True일 경우, 몇 번째 index를 사용할 것인지
+        repeat_penalty=REPEAT_PENALTY,
+        editor_model=EDITOR_MODEL,
+        use_single_sequence=USE_SINGLE_SEQUENCE,
+        fixed_sequence_idx=0,
     )
 
-    # ========== 알고리즘 초기화 ==========
+    # 강화학습 정책 구성
+    log.info("강화학습 정책 구성")
     len_scores = len(fields(DocumentScore))  # 평가 지표 (state)의 개수
     runner = PPORunner(
         env=env,
-        max_steps=3,
+        max_steps=MAX_STEPS,
         state_dim=len_scores
         + 1
-        + env.num_actions,  # 6가지 평가 기준 + step + last_action_one_hot
+        + env.num_actions,  # scores + step + last_action_one_hot
         num_actions=env.num_actions,
-        gamma=0.95,
-        lr=3e-4,
-        clip_eps=0.2,
-        K_epochs=4,
+        lr=LR,
+        gamma=GAMMA,
+        gae_lambda=GAE_LAMBDA,
+        entropy_coef=ENTROPY_COEF,
+        clip_eps=CLIP_EPS,
+        K_epochs=K_EPOCHS,  # PPO 업데이트 반복 횟수
+        buffer_size=BUFFER_SIZE,  # 학습 전에 모을 step 수
+        batch_size=BATCH_SIZE,  # 미니배치 크기
     )
 
-    # ========== 학습 ==========
-    # TODO: 아래 show_policy를 evaluate_greedy()함수내에 넣었음.
-    # TODO: 대신, 학습 전의 policy 상태는 없으나, 여기서 꼭 봐야할까?
-    # log.info("[학습 전] 정책:")
-    # runner.show_policy()
+    # 체크포인트에서 재개
+    if CHECKPOINT_DIR:
+        try:
+            runner.load_checkpoint(CHECKPOINT_DIR)
+            log.info(f"체크포인트에서 학습 재개: {CHECKPOINT_DIR}")
+        except FileNotFoundError as e:
+            log.error(f"체크포인트 로드 실패: {e}")
+            return
 
-    # 학습
-    log.info("학습 시작...")
-    rewards = runner.train(
+    # 학습 시작
+    log.info("학습 시작")
+    runner.train(
         num_episodes=NUM_EPISODES,
-        log_interval=LOG_INTERVAL,
         checkpoint_dir=SAVE_CHECKPOINT_DIR,
+        checkpoint_interval=CHECKPOINT_INTERVAL,
+        log_interval=LOG_INTERVAL,
     )
 
-    # log.info("[학습 후] 정책:")
-    # runner.show_policy()
-
-    # ========== 평가 ==========
+    # 평가 시작
+    log.info("평가")
     runner.evaluate_greedy()
-
-    # ========== 학습 결과 요약 ==========
-    log.info(f"\n{'='*60}")
-    log.info("학습 결과 요약")
-    log.info(f"{'='*60}")
-    log.info(f"  초기 100ep 평균: {sum(rewards[:100])/100:+.3f}")
-    log.info(f"  마지막 100ep 평균: {sum(rewards[-100:])/100:+.3f}")
-    log.info(f"  개선도: {sum(rewards[-100:])/100 - sum(rewards[:100])/100:+.3f}")
+    return
 
 
 if __name__ == "__main__":

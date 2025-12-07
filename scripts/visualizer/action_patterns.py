@@ -261,7 +261,7 @@ def main(checkpoint_dir: str):
     Args:
         checkpoint_dir: 체크포인트 디렉토리 경로
     """
-    checkpoint_path = Path(checkpoint_dir)
+    checkpoint_path = Path(r"D:\SMC\projects\reinforcement-with-llm\logs\checkpoints\ppo\20251206T121931")
     traj_dir = checkpoint_path / "trajectories"
     
     if not traj_dir.exists():
@@ -290,5 +290,5 @@ def main(checkpoint_dir: str):
 
 if __name__ == "__main__":
     # 사용 예시
-    checkpoint_dir = get_latest_checkpoint()
-    main(checkpoint_dir)
+    # checkpoint_dir = get_latest_checkpoint()
+    main(None)
