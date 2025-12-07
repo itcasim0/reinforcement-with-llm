@@ -146,6 +146,8 @@ python scripts/train_eval/dqn.py
 ```
 
 #### 2) 오프라인 PPO, PPO, A2C, DQN 시각화
+- [공유 드라이브](https://drive.google.com/drive/folders/17H69fxD9U-RU44bgt50dYbvhN6xCRK_U?usp=drive_link)에서 data/logs에 마지막으로 학습한 결과들이 있습니다.
+  - 이를 통해서 별도로 학습하지 않고 바로 시각화를 할 수 있습니다.
 
 ```python
 python scripts/visualizer/train_log_ppo_offline.py
